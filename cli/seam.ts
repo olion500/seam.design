@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 import { cpSync, existsSync, mkdirSync, renameSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { DEFAULT_DEVICE, DEVICES, type DeviceId, deviceOf } from "../src/model/devices";
 import type { CapturedElement, Project } from "../src/model/types";
 import { openBrowser } from "./capture";
 import { type Change, changeMarkdown, pendingChanges } from "./changes";
@@ -25,7 +26,9 @@ const HELP = `seam — 디자인 명세 편집기 CLI (AI 에이전트용, 결�
 
   seam init [--force]          .seam/seam.json 초안 생성 (값은 직접 확인·수정)
   seam import                  화면 경로, 흐름 문서, 토큰을 읽어 .seam/project.json 생성/갱신
-  seam capture [화면ID...]     앱을 열어 기준 스크린샷과 화면 요소 저장 (앱이 떠 있어야 함)
+  seam capture [화면ID...] [--device iphone|galaxy]
+                               앱을 열어 기준 스크린샷과 화면 요소 저장 (앱이 떠 있어야 함)
+                               기기: iphone = iPhone 18 Pro 402×874 (기본), galaxy = Galaxy S26 360×780
   seam open [--port 5190]      이 레포의 .seam/을 연 편집기 서버 실행
   seam changes                 기준 대비 변경 묶음을 .seam/changes/pending/에 쓰고 출력
   seam verify [--no-capture]   코드 반영 결과 확인 (토큰 값, 문구, 흐름 문서, 다시 캡처)
@@ -62,7 +65,7 @@ async function detectConfig(root: string): Promise<SeamConfig> {
   const flowFile = ["docs/user-flows.md"].find((f) => existsSync(join(root, f)));
   return {
     name: pkg.name ?? root.split("/").pop() ?? "app",
-    app: { command: pm === "npm" ? `npm run ${webScript}` : `${pm} ${webScript === "dev" && pm === "bun" ? "run dev" : webScript}`, url: "http://localhost:8081", viewport: { width: 390, height: 844 } },
+    app: { command: pm === "npm" ? `npm run ${webScript}` : `${pm} ${webScript === "dev" && pm === "bun" ? "run dev" : webScript}`, url: "http://localhost:8081", device: DEFAULT_DEVICE },
     routes: { type: "expo-router", dir: routesDir },
     ...(tokenFile && { tokens: { file: tokenFile, exports: exportsFound } }),
     ...(flowFile && { flows: { file: flowFile } }),
@@ -89,7 +92,7 @@ async function appReachable(config: SeamConfig) {
 async function captureScreens(root: string, project: Project, ids: string[], outDir: string) {
   const config = await readJSON<SeamConfig>(configPath(root));
   await appReachable(config);
-  const browser = await openBrowser(config.app.viewport);
+  const browser = await openBrowser(deviceOf(project.device));
   const results: { id: string; url: string; image: string; elements: number; shot: Awaited<ReturnType<typeof browser.shoot>> }[] = [];
   try {
     for (const id of ids) {
@@ -131,16 +134,20 @@ async function cmdImport(root: string) {
 
 async function cmdCapture(root: string, args: Args) {
   const project = await readJSON<Project>(projectPath(root));
+  if (typeof args.flags.device === "string") {
+    if (!(args.flags.device in DEVICES)) throw new SeamError(`기기는 ${Object.keys(DEVICES).join(", ")} 중 하나여야 합니다`);
+    project.device = args.flags.device as DeviceId;
+  }
   const ids = args._.length ? args._ : project.screens.map((s) => s.id);
   const results = await captureScreens(root, project, ids, join(seamDir(root), "screens"));
   for (const r of results) {
     const screen = project.screens.find((s) => s.id === r.id);
     if (!screen) continue;
-    screen.baseline = { image: `screens/${r.id}.png`, elements: r.shot.elements, url: r.url, capturedAt: `${today()} 캡처` };
+    screen.baseline = { image: `screens/${r.id}.png`, elements: r.shot.elements, url: r.url, capturedAt: `${today()} 캡처`, device: project.device };
     screen.size = r.shot.size;
   }
   await writeJSON(projectPath(root), project);
-  print({ captured: results.map(({ id, url, image, elements }) => ({ id, url, image, elements })) });
+  print({ device: deviceOf(project.device).name, captured: results.map(({ id, url, image, elements, shot }) => ({ id, url, image, elements, size: shot.size })) });
 }
 
 async function cmdOpen(root: string, args: Args) {
@@ -246,7 +253,7 @@ async function cmdDone(root: string, args: Args) {
     if (shot && existsSync(shot.image)) {
       mkdirSync(join(seamDir(root), "screens"), { recursive: true });
       cpSync(shot.image, join(seamDir(root), "screens", `${s.id}.png`));
-      s.baseline = { image: `screens/${s.id}.png`, elements: shot.elements, url: shot.url, capturedAt: `${today()} 캡처` };
+      s.baseline = { image: `screens/${s.id}.png`, elements: shot.elements, url: shot.url, capturedAt: `${today()} 캡처`, device: project.device };
       s.size = shot.size;
     }
   }

@@ -31,7 +31,7 @@ Every command prints JSON. A JSON object with `error` means the command failed; 
    - `screens.include`: the routes to capture first (start with a few). `screens.params`: sample values for dynamic routes, e.g. `{ "/bean/[id]": { "id": "<real id>" } }`.
 2. `seam import` builds `.seam/project.json` from routes, flows and tokens. It is safe to rerun; screen positions, baselines and user edits are kept.
 3. Start the app (`app.command`) in the background and wait until `app.url` responds. Keep its file watching on: do not set `CI=true` (Expo/Metro disable reloads in CI mode), or later `seam verify` captures will show the old code.
-4. `seam capture [screen ids]` saves a screenshot and the visible elements (role, label, box) of each screen. Look at the screenshots in `.seam/screens/`. If a screen is empty or wrong because it needs data, a login, or a particular state, fix that (sample data, params) and capture again rather than accepting a misleading baseline.
+4. `seam capture [screen ids] [--device iphone|galaxy]` emulates the project's phone (`iphone` = iPhone 18 Pro 402×874, the default; `galaxy` = Galaxy S26 360×780; the user can switch it in the editor) and saves a screenshot and the visible elements (role, label, box) of each screen. Look at the screenshots in `.seam/screens/`. If a screen is empty or wrong because it needs data, a login, or a particular state, fix that (sample data, params) and capture again rather than accepting a misleading baseline.
 5. `seam open` starts the editor on this repo's `.seam/` (default `http://localhost:5190/`). Keep it running in the background and give the user the URL.
 
 ## Workflow B: apply the user's seam changes to the code
@@ -48,6 +48,8 @@ Every command prints JSON. A JSON object with `error` means the command failed; 
 5. When everything passes and every `review` item truly matches, `seam done`. It makes the after-screenshots the new baseline, clears the applied requests, and archives the change set under `.seam/changes/<timestamp>/`. Commit `.seam/` together with the code change if the repo tracks it.
 
 ## Other commands
+
+- If the editor shows that some baseline screenshots were taken at another device size (the user switched devices), run `seam capture` again with the app running.
 
 - `seam verify --no-capture`: check tokens and flows without running the app (element items become `review`).
 - `seam done --force`: archive even with failures. Only when the user explicitly says so.

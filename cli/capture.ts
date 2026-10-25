@@ -1,3 +1,4 @@
+import type { Device } from "../src/model/devices";
 import type { CapturedElement } from "../src/model/types";
 
 const EXTRACT = `(() => {
@@ -62,9 +63,17 @@ export function withKeys(raw: Omit<CapturedElement, "key">[]): CapturedElement[]
   });
 }
 
-export async function openBrowser(viewport: { width: number; height: number }) {
+export async function openDeviceView(width: number, height: number, pixelRatio = 2) {
   const chromePath = process.env.SEAM_CHROME_PATH;
-  const view = new Bun.WebView({ ...viewport, backend: chromePath ? { type: "chrome", path: chromePath } : "chrome" });
+  const view = new Bun.WebView({ width, height, backend: chromePath ? { type: "chrome", path: chromePath } : "chrome" });
+  await view.navigate("about:blank");
+  await view.cdp("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: pixelRatio, mobile: true });
+  await view.cdp("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
+  return view;
+}
+
+export async function openBrowser(device: Device) {
+  const view = await openDeviceView(device.width, device.height);
   return {
     async shoot(url: string): Promise<Shot> {
       await view.navigate(url);

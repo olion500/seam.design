@@ -107,9 +107,12 @@ describe("seam CLI round trip", () => {
   it("detects the config and imports screens, flows and tokens", async () => {
     const config = await Bun.file(join(root, ".seam/seam.json")).json();
     expect(config.app.command).toBe("pnpm mobile:web");
+    expect(config.app.device).toBe("iphone");
     expect(config.tokens).toEqual({ file: "mobile/src/theme.ts", exports: ["colors", "fonts", "typography"] });
     const p = await readProject(root);
     expect(p.screens.map((s) => s.id)).toEqual(["HOME", "PREP1"]);
+    expect(p.device).toBe("iphone");
+    expect(p.screens[0].size).toEqual({ w: 402, h: 874 });
     expect(p.transitions.map((t) => `${t.from}>${t.to}`)).toEqual(["HOME>PREP1", "PREP1>HOME"]);
     expect(pendingChanges(p)).toEqual([]);
   });

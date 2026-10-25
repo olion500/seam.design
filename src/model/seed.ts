@@ -1,6 +1,7 @@
+import { DEFAULT_DEVICE, deviceSize } from "./devices";
 import type { Project, Screen, ScreenElement, ScreenSpec } from "./types";
 
-const SIZE = { w: 390, h: 844 };
+const SIZE = deviceSize(DEFAULT_DEVICE);
 
 const spec = (elements: ScreenElement[], gap = "space-sm", align: ScreenSpec["align"] = "stretch"): ScreenSpec => ({
   align,
@@ -91,6 +92,7 @@ export function seedProject(): Project {
   return {
     id: crypto.randomUUID().slice(0, 8),
     name: "결제 흐름 개편",
+    device: DEFAULT_DEVICE,
     screens: [
       screen({
         id: "cart",

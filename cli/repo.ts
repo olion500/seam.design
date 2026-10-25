@@ -1,12 +1,13 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { DEFAULT_DEVICE, type DeviceId, deviceSize } from "../src/model/devices";
 import { seedProject } from "../src/model/seed";
 import type { Project, Screen, Transition } from "../src/model/types";
 import type { FlowEdge, FlowNode, ParsedToken, RouteFile } from "./parse";
 
 export interface SeamConfig {
   name: string;
-  app: { command: string; url: string; viewport: { width: number; height: number } };
+  app: { command: string; url: string; device?: DeviceId };
   routes: { type: "expo-router"; dir: string };
   tokens?: { file: string; exports: string[] };
   flows?: { file: string };
@@ -53,6 +54,7 @@ export function buildProject({ config, routes, nodes, edges, tokens, tokenFile, 
   for (const n of nodes.values()) if (n.route && !byRoute.has(n.route)) byRoute.set(n.route, n);
   const picked = routes.filter((r) => (include ? include.includes(r.route) : !r.dynamic || config.screens?.params?.[r.route]));
   const prevScreens = new Map(previous?.screens.map((s) => [s.id, s]));
+  const device = previous?.device ?? config.app.device ?? DEFAULT_DEVICE;
 
   const screens: Screen[] = picked.map((r, i) => {
     const node = byRoute.get(r.route);
@@ -63,7 +65,7 @@ export function buildProject({ config, routes, nodes, edges, tokens, tokenFile, 
       name: prev?.name ?? node?.name ?? r.route,
       route: r.route,
       position: prev?.position ?? { x: (i % 4) * 240, y: Math.floor(i / 4) * 420 },
-      size: prev?.size ?? { w: config.app.viewport.width, h: config.app.viewport.height },
+      size: prev?.size ?? deviceSize(device),
       baseline: prev?.baseline ?? null,
       variant: null,
       states: prev?.states ?? ["기본"],
@@ -108,6 +110,7 @@ export function buildProject({ config, routes, nodes, edges, tokens, tokenFile, 
     motions: previous?.motions ?? seed.motions,
     rules: previous?.rules ?? seed.rules.filter((r) => r.check === "no-dead-end" || r.check === "reduced-motion"),
     assets: [],
+    device,
     source: {
       tokens: Object.fromEntries(tokens.map((t) => [t.name, { path: t.path, value: t.value, file: tokenFile ?? "", line: t.line }])),
       transitions: imported.map(transitionKey),

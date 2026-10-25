@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { current } from "immer";
 import { immer } from "zustand/middleware/immer";
 import { temporal } from "zundo";
+import { type DeviceId, deviceSize } from "@/model/devices";
 import { defaultSpec, emptyProject, seedProject } from "@/model/seed";
 import type { ChangeRequest, MotionPreset, Project, Rule, Screen, ScreenElement, Selection, SourceMapping, Transition, View } from "@/model/types";
 
@@ -27,6 +28,7 @@ export interface EditorState {
   loadExample: () => void;
   markSaved: (project: Project) => void;
   renameProject: (name: string) => void;
+  setDevice: (device: DeviceId) => void;
 
   addScreen: (input?: { name?: string; image?: string; url?: string; position?: { x: number; y: number } }) => string;
   updateScreen: (id: string, patch: Partial<Pick<Screen, "name" | "terminal" | "states" | "position">>) => void;
@@ -81,6 +83,12 @@ export const useEditor = create<EditorState>()(
           s.project.name = name;
         }),
 
+      setDevice: (device) =>
+        set((s) => {
+          s.project.device = device;
+          for (const screen of s.project.screens) if (!screen.baseline?.image) screen.size = deviceSize(device);
+        }),
+
       addScreen: (input = {}) => {
         const id = newId();
         set((s) => {
@@ -90,7 +98,7 @@ export const useEditor = create<EditorState>()(
             id,
             name,
             position: input.position ?? { x: (n % 4) * 240, y: Math.floor(n / 4) * 420 },
-            size: { w: 390, h: 844 },
+            size: deviceSize(s.project.device),
             baseline: input.image
               ? { image: input.image, url: input.url, capturedAt: `${today()} ${input.url ? "캡처" : "스크린샷"}` }
               : { spec: defaultSpec(name), capturedAt: "직접 작성" },

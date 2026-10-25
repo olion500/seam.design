@@ -13,7 +13,9 @@ import {
 import { ImagePlus, Minus, Plus, SquarePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CompareDrawer } from "@/components/CompareDrawer";
+import { DEFAULT_DEVICE, DEVICES, type DeviceId, deviceSize } from "@/model/devices";
 import { screenChanges } from "@/model/diff";
+import { useSync } from "@/store/persist";
 import { useRuleState } from "@/store/derived";
 import { useEditor } from "@/store/store";
 import { uploadScreenshot } from "@/store/actions";
@@ -133,7 +135,8 @@ function Canvas() {
       <div className="pointer-events-none absolute top-5 left-6 z-10 text-sm font-bold tracking-wider text-muted-foreground">
         {project.name} · 화면 {project.screens.length}
       </div>
-      <div className="absolute top-4 right-4 z-10 flex gap-2">
+      <div className="absolute top-4 right-4 z-10 flex flex-wrap justify-end gap-2">
+        <DevicePicker />
         <Button variant="secondary" className="bg-white shadow-soft" onClick={() => useEditor.getState().addScreen()}>
           <SquarePlus /> 화면 추가
         </Button>
@@ -144,6 +147,36 @@ function Canvas() {
       <Hints comparing={compareIds.length} />
       <ZoomControls />
     </ReactFlow>
+  );
+}
+
+function DevicePicker() {
+  const device = useEditor((s) => s.project.device ?? DEFAULT_DEVICE);
+  const stale = useEditor((s) => {
+    const size = deviceSize(s.project.device);
+    return s.project.screens.filter((x) => x.baseline?.image && (x.size.w !== size.w || x.size.h !== size.h)).length;
+  });
+  const repo = useSync((s) => s.repo);
+  return (
+    <div className="flex items-center gap-2">
+      {stale > 0 && (
+        <span className="rounded-full bg-warn/30 px-3 py-1.5 text-[13px]" title={repo ? "AI에게 “seam으로 다시 캡처해 줘”라고 하거나 seam capture를 실행하세요" : "이 기기 크기로 스크린샷을 다시 올리세요"}>
+          기준 스크린샷 {stale}개는 다른 기기 크기 · {repo ? "seam capture로 다시 찍기" : "다시 올리기"}
+        </span>
+      )}
+      <select
+        aria-label="기기 크기"
+        className="h-10 rounded-lg border-0 bg-white px-3 text-sm font-[550] shadow-soft outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        value={device}
+        onChange={(e) => useEditor.getState().setDevice(e.target.value as DeviceId)}
+      >
+        {Object.values(DEVICES).map((d) => (
+          <option key={d.id} value={d.id}>
+            {d.name} · {d.width}×{d.height}
+          </option>
+        ))}
+      </select>
+    </div>
   );
 }
 

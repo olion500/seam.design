@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
+import { deviceOf } from "@/model/devices";
+import { useEditor } from "@/store/store";
 
 interface Props {
   open: boolean;
@@ -13,8 +15,9 @@ interface Props {
 
 export function CaptureDialog({ open, onOpenChange, initialUrl = "", onCaptured }: Props) {
   const [url, setUrl] = useState(initialUrl);
-  const [width, setWidth] = useState(390);
-  const [height, setHeight] = useState(844);
+  const device = deviceOf(useEditor((s) => s.project.device));
+  const [width, setWidth] = useState(device.width);
+  const [height, setHeight] = useState(device.height);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
 

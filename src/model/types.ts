@@ -1,3 +1,5 @@
+import type { DeviceId } from "./devices";
+
 export type TokenKind = "color" | "radius" | "space" | "type";
 
 export interface Token {
@@ -43,6 +45,7 @@ export interface Baseline {
   capturedAt?: string;
   url?: string;
   elements?: CapturedElement[];
+  device?: DeviceId;
 }
 
 export interface ChangeRequest {
@@ -132,6 +135,7 @@ export interface Project {
   rules: Rule[];
   assets: Asset[];
   source?: ProjectSource;
+  device?: DeviceId;
 }
 
 export interface TokenSource {

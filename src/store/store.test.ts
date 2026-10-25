@@ -28,6 +28,15 @@ describe("editor store", () => {
     expect(isDirty(useEditor.getState())).toBe(false);
   });
 
+  it("resizes drawn screens to the chosen device but leaves captured screenshots for recapture", () => {
+    const { addScreen, setDevice } = useEditor.getState();
+    const shotId = addScreen({ name: "캡처", image: "screens/x.png" });
+    setDevice("galaxy");
+    expect(useEditor.getState().project.device).toBe("galaxy");
+    expect(screen("cart").size).toEqual({ w: 360, h: 780 });
+    expect(screen(shotId).size).toEqual({ w: 402, h: 874 });
+  });
+
   it("removes a screen together with its transitions", () => {
     useEditor.getState().removeScreen("payment");
     const { transitions } = useEditor.getState().project;

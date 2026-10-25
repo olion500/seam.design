@@ -3,6 +3,7 @@ import { ImageIcon } from "lucide-react";
 import { colorRef, lengthRef, tokenVars } from "@/model/tokens";
 import type { Screen, ScreenElement, ScreenSpec, Token } from "@/model/types";
 import { imageSrc } from "@/lib/api";
+import { DEFAULT_DEVICE, deviceSize } from "@/model/devices";
 import { cn } from "@/lib/utils";
 
 interface SpecViewProps {
@@ -101,7 +102,7 @@ function Element({ el, center }: { el: ScreenElement; center: boolean }) {
   }
 }
 
-export function SpecView({ spec, tokens, width, size = { w: 390, h: 844 }, changedIds, layoutChanged, focusId, overlay }: SpecViewProps) {
+export function SpecView({ spec, tokens, width, size = deviceSize(DEFAULT_DEVICE), changedIds, layoutChanged, focusId, overlay }: SpecViewProps) {
   const scale = width / size.w;
   const dot = 8 / scale;
   const center = spec.align === "center";

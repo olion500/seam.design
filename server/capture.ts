@@ -1,3 +1,6 @@
+import { openDeviceView } from "../cli/capture";
+import { DEVICES } from "../src/model/devices";
+
 export interface CaptureRequest {
   url: string;
   width: number;
@@ -9,7 +12,7 @@ export type Capture = (req: CaptureRequest) => Promise<string>;
 export class CaptureError extends Error {}
 
 export function parseCaptureRequest(body: unknown): CaptureRequest {
-  const { url, width = 390, height = 844 } = (body ?? {}) as Partial<CaptureRequest>;
+  const { url, width = DEVICES.iphone.width, height = DEVICES.iphone.height } = (body ?? {}) as Partial<CaptureRequest>;
   let parsed: URL;
   try {
     parsed = new URL(String(url));
@@ -25,8 +28,7 @@ export function parseCaptureRequest(body: unknown): CaptureRequest {
 }
 
 export const captureWithChrome: Capture = async ({ url, width, height }) => {
-  const chromePath = process.env.SEAM_CHROME_PATH;
-  const view = new Bun.WebView({ width, height, backend: chromePath ? { type: "chrome", path: chromePath } : "chrome" });
+  const view = await openDeviceView(width, height);
   try {
     await view.navigate(url);
     await view.evaluate("document.fonts.ready.then(() => true)");
