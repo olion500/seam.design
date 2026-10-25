@@ -30,11 +30,26 @@ export interface ScreenSpec {
   elements: ScreenElement[];
 }
 
+export interface CapturedElement {
+  key: string;
+  role: string;
+  label: string;
+  box: { x: number; y: number; w: number; h: number };
+}
+
 export interface Baseline {
   spec?: ScreenSpec;
   image?: string;
   capturedAt?: string;
   url?: string;
+  elements?: CapturedElement[];
+}
+
+export interface ChangeRequest {
+  id: string;
+  elementKey?: string;
+  label?: string;
+  note: string;
 }
 
 export interface Variant {
@@ -59,6 +74,8 @@ export interface Screen {
   sources: SourceMapping[];
   terminal?: boolean;
   live?: { url: string };
+  route?: string;
+  requests?: ChangeRequest[];
 }
 
 export interface Transition {
@@ -114,6 +131,19 @@ export interface Project {
   motions: MotionPreset[];
   rules: Rule[];
   assets: Asset[];
+  source?: ProjectSource;
+}
+
+export interface TokenSource {
+  path: string;
+  value: string;
+  file: string;
+  line: number;
+}
+
+export interface ProjectSource {
+  tokens: Record<string, TokenSource>;
+  transitions: string[];
 }
 
 export type View = "flow" | "system" | "rules" | "motion";

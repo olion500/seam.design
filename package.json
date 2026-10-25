@@ -7,8 +7,8 @@
     "dev": "bun run --parallel dev:web dev:server",
     "build": "bun run typecheck && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p server",
-    "test": "vitest run && bun test server",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p server && tsc --noEmit -p cli",
+    "test": "vitest run && bun test server cli",
     "lint": "biome lint",
     "dev:web": "vite",
     "dev:server": "bun --watch server/index.ts",
@@ -45,5 +45,8 @@
     "typescript": "^7.0.2",
     "vite": "^8.3.5",
     "vitest": "^5.0.5"
+  },
+  "bin": {
+    "seam": "cli/seam.ts"
   }
 }
