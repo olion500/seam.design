@@ -4,12 +4,15 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "dev": "bun run --parallel dev:web dev:server",
+    "build": "bun run typecheck && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "lint": "biome lint"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p server",
+    "test": "vitest run && bun test server",
+    "lint": "biome lint",
+    "dev:web": "vite",
+    "dev:server": "bun --watch server/index.ts",
+    "start": "NODE_ENV=production bun server/index.ts"
   },
   "dependencies": {
     "@xyflow/react": "^12.12.0",
@@ -31,6 +34,7 @@
     "@biomejs/biome": "^2.6.3",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/react": "^16.3.3",
+    "@types/bun": "^1.4.4",
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
