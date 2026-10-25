@@ -6,6 +6,9 @@ import type { View } from "@/model/types";
 import { saveProject } from "@/store/persist";
 import { redo, undo, useEditor } from "@/store/store";
 import { FlowView } from "@/views/flow/FlowView";
+import { MotionView } from "@/views/MotionView";
+import { RulesView } from "@/views/RulesView";
+import { SystemView } from "@/views/SystemView";
 
 const VIEWS: View[] = ["flow", "system", "rules", "motion"];
 const viewFromHash = (): View => {
@@ -74,6 +77,9 @@ export function App() {
         <TopBar />
         <div className="flex min-h-0 flex-1">
           {view === "flow" && <FlowView />}
+          {view === "system" && <SystemView />}
+          {view === "rules" && <RulesView />}
+          {view === "motion" && <MotionView />}
           <Inspector />
         </div>
       </div>
