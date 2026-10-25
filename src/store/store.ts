@@ -28,10 +28,11 @@ export interface EditorState {
   markSaved: (project: Project) => void;
   renameProject: (name: string) => void;
 
-  addScreen: (input?: { name?: string; image?: string; position?: { x: number; y: number } }) => string;
+  addScreen: (input?: { name?: string; image?: string; url?: string; position?: { x: number; y: number } }) => string;
   updateScreen: (id: string, patch: Partial<Pick<Screen, "name" | "terminal" | "states" | "position">>) => void;
   moveScreen: (id: string, position: { x: number; y: number }) => void;
-  setBaselineImage: (id: string, image: string) => void;
+  setBaselineImage: (id: string, image: string, url?: string) => void;
+  setLiveUrl: (id: string, url: string | undefined) => void;
   createVariant: (id: string) => void;
   discardVariant: (id: string) => void;
   updateVariantElement: (screenId: string, elementId: string, patch: Partial<ScreenElement>) => void;
@@ -88,7 +89,9 @@ export const useEditor = create<EditorState>()(
             name,
             position: input.position ?? { x: (n % 4) * 240, y: Math.floor(n / 4) * 420 },
             size: { w: 390, h: 844 },
-            baseline: input.image ? { image: input.image, capturedAt: `${today()} 스크린샷` } : { spec: defaultSpec(name), capturedAt: "직접 작성" },
+            baseline: input.image
+              ? { image: input.image, url: input.url, capturedAt: `${today()} ${input.url ? "캡처" : "스크린샷"}` }
+              : { spec: defaultSpec(name), capturedAt: "직접 작성" },
             variant: null,
             states: ["기본"],
             sources: [],
@@ -107,10 +110,15 @@ export const useEditor = create<EditorState>()(
           const screen = s.project.screens.find((x) => x.id === id);
           if (screen) screen.position = position;
         }),
-      setBaselineImage: (id, image) =>
+      setBaselineImage: (id, image, url) =>
         set((s) => {
           const screen = s.project.screens.find((x) => x.id === id);
-          if (screen) screen.baseline = { ...screen.baseline, image, capturedAt: `${today()} 스크린샷` };
+          if (screen) screen.baseline = { ...screen.baseline, image, url, capturedAt: `${today()} ${url ? "캡처" : "스크린샷"}` };
+        }),
+      setLiveUrl: (id, url) =>
+        set((s) => {
+          const screen = s.project.screens.find((x) => x.id === id);
+          if (screen) screen.live = url ? { url } : undefined;
         }),
       createVariant: (id) =>
         set((s) => {

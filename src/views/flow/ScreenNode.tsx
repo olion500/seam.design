@@ -1,5 +1,6 @@
 import { memo, useState } from "react";
 import { Handle, NodeToolbar, Position, type Node, type NodeProps } from "@xyflow/react";
+import { LiveFrame } from "@/components/LiveFrame";
 import { ScreenView } from "@/components/ScreenView";
 import { StatusBadge, WarnIcon } from "@/components/bits";
 import { screenChanges } from "@/model/diff";
@@ -36,7 +37,7 @@ function ScreenNodeImpl({ data, selected }: NodeProps<ScreenNodeType>) {
   const tokens = useEditor((s) => s.project.tokens);
   const focusChange = useEditor((s) => s.focusChange);
   const hover = usePreview((s) => s.id === data.screenId);
-  const [previewMode, setPreviewMode] = useState<"baseline" | "variant">("baseline");
+  const [previewMode, setPreviewMode] = useState<"baseline" | "variant" | "live">("baseline");
 
   if (!screen) return null;
   const changes = screenChanges(screen);
@@ -98,8 +99,8 @@ function ScreenNodeImpl({ data, selected }: NodeProps<ScreenNodeType>) {
             <span className="text-sm font-bold">{screen.name}</span>
             <span className="text-xs text-muted-foreground">미리 보기</span>
           </div>
-          <fieldset aria-label="기준 또는 시안 보기" className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
-            {(["baseline", "variant"] as const).map((m) => (
+          <fieldset aria-label="기준 또는 시안 보기" className={cn("grid gap-1 rounded-lg bg-muted p-1", screen.live ? "grid-cols-3" : "grid-cols-2")}>
+            {(["baseline", "variant", ...(screen.live ? (["live"] as const) : [])] as const).map((m) => (
               <button
                 key={m}
                 type="button"
@@ -111,15 +112,21 @@ function ScreenNodeImpl({ data, selected }: NodeProps<ScreenNodeType>) {
                   previewMode === m && "bg-white font-bold text-foreground shadow-soft",
                 )}
               >
-                {m === "baseline" ? "기준" : "시안"}
+                {m === "baseline" ? "기준" : m === "variant" ? "시안" : "라이브"}
               </button>
             ))}
           </fieldset>
-          <div className="overflow-hidden rounded-md">
-            <ScreenView screen={screen} mode={previewMode} width={208} tokens={tokens} />
-          </div>
+          {previewMode === "live" && screen.live ? (
+            <LiveFrame screen={screen} url={screen.live.url} width={208} />
+          ) : (
+            <div className="overflow-hidden rounded-md">
+              <ScreenView screen={screen} mode={previewMode === "live" ? "variant" : previewMode} width={208} tokens={tokens} />
+            </div>
+          )}
           <span className="text-xs text-muted-foreground">
-            {previewMode === "variant" && screen.variant
+            {previewMode === "live" && screen.live
+              ? screen.live.url
+              : previewMode === "variant" && screen.variant
               ? `시안 v${screen.variant.version} · ${screen.variant.updatedAt}`
               : screen.baseline
                 ? `기준 · ${screen.baseline.capturedAt ?? ""}`

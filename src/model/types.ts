@@ -34,6 +34,7 @@ export interface Baseline {
   spec?: ScreenSpec;
   image?: string;
   capturedAt?: string;
+  url?: string;
 }
 
 export interface Variant {
@@ -57,6 +58,7 @@ export interface Screen {
   states: string[];
   sources: SourceMapping[];
   terminal?: boolean;
+  live?: { url: string };
 }
 
 export interface Transition {

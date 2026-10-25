@@ -89,7 +89,7 @@ const base = (sp: ScreenSpec) => ({ spec: sp, capturedAt: "10월 12일 스크린
 
 export function seedProject(): Project {
   return {
-    id: "demo",
+    id: crypto.randomUUID().slice(0, 8),
     name: "결제 흐름 개편",
     screens: [
       screen({

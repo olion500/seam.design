@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { ArrowRight, Check, ImagePlus, Trash2, TriangleAlert, X } from "lucide-react";
+import { ArrowRight, Check, Globe, ImagePlus, Trash2, TriangleAlert, X } from "lucide-react";
+import { CaptureDialog } from "@/components/CaptureDialog";
+import { LiveFrame } from "@/components/LiveFrame";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Eyebrow, Field, Section, StatusBadge, selectClass } from "@/components/bits";
@@ -20,6 +22,7 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
   const outgoing = project.transitions.filter((t) => t.from === screen.id);
   const spec = screen.variant?.spec ?? screen.baseline?.spec;
   const screenRules = results.filter((r) => r.rule.enabled && r.scopeLabel === "화면");
+  const [capturing, setCapturing] = useState(false);
 
   return (
     <>
@@ -53,6 +56,9 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
             {screen.baseline ? screen.baseline.capturedAt ?? "있음" : "기준 이미지 없음"}
             <button type="button" className="text-brand" onClick={() => void uploadBaseline(screen.id)} aria-label="기준 스크린샷 올리기">
               <ImagePlus className="size-4" />
+            </button>
+            <button type="button" className="text-brand" onClick={() => setCapturing(true)} aria-label="URL에서 기준 캡처">
+              <Globe className="size-4" />
             </button>
           </dd>
           <dt className="text-muted-foreground">시안</dt>
@@ -105,6 +111,15 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
       )}
 
       {screen.variant && <VariantEditor screen={screen} spec={screen.variant.spec} />}
+
+      <LiveSection key={screen.live?.url ?? ""} screen={screen} />
+
+      <CaptureDialog
+        open={capturing}
+        onOpenChange={setCapturing}
+        initialUrl={screen.baseline?.url ?? screen.live?.url ?? ""}
+        onCaptured={(image, url) => ed.setBaselineImage(screen.id, image, url)}
+      />
 
       {screenRules.length > 0 && spec && (
         <Section title="규칙" action={<LinkButton onClick={() => ed.setView("rules")}>규칙 보기</LinkButton>}>
@@ -159,6 +174,41 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
         </div>
       </Section>
     </>
+  );
+}
+
+function LiveSection({ screen }: { screen: Screen }) {
+  const [url, setUrl] = useState(screen.live?.url ?? "");
+  const apply = () => useEditor.getState().setLiveUrl(screen.id, url.trim() || undefined);
+  return (
+    <Section title="라이브 시안 (React 앱)">
+      <form
+        className="flex gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          apply();
+        }}
+      >
+        <Input
+          aria-label="라이브 시안 URL"
+          placeholder="http://localhost:5173/checkout"
+          className="h-9 font-mono text-[13px]"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+        />
+        <Button type="submit" size="sm" variant="secondary" className="h-9">
+          열기
+        </Button>
+      </form>
+      {screen.live ? (
+        <LiveFrame screen={screen} url={screen.live.url} width={300} />
+      ) : (
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          이 화면을 그리는 React 앱 주소를 넣으면 실제 앱을 시안으로 띄웁니다. 앱에 <code className="font-mono">seam-bridge.js</code>를 넣으면 토큰 변경이 바로
+          반영됩니다.
+        </p>
+      )}
+    </Section>
   );
 }
 

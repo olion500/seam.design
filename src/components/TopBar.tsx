@@ -11,9 +11,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { parseProject, toJSON, toMarkdown } from "@/model/exportSpec";
 import type { View } from "@/model/types";
+import { useSync } from "@/store/persist";
 import { isDirty, useEditor } from "@/store/store";
 import { download, pickFile } from "@/lib/files";
 import { cn } from "@/lib/utils";
+import { OpenProjectDialog, ShareDialog } from "./ProjectDialogs";
 import { SearchDialog } from "./SearchDialog";
 
 const VIEWS: { id: View; label: string }[] = [
@@ -28,7 +30,10 @@ export function TopBar() {
   const view = useEditor((s) => s.view);
   const dirty = useEditor(isDirty);
   const ed = useEditor.getState();
+  const sync = useSync();
   const [searching, setSearching] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [opening, setOpening] = useState(false);
   const [error, setError] = useState<string>();
 
   const importJSON = async () => {
@@ -59,7 +64,25 @@ export function TopBar() {
             <span className="sr-only">저장 안 됨</span>
           </span>
         )}
-        {error && <span className="truncate text-xs text-destructive">{error}</span>}
+        {sync.status === "local-only" && !dirty && (
+          <span className="shrink-0 text-xs text-muted-foreground" title="서버에 연결하지 못해 이 브라우저에만 저장했습니다">
+            로컬에만 저장됨
+          </span>
+        )}
+        {sync.status === "server" && !dirty && <span className="shrink-0 text-xs text-muted-foreground">서버에 저장됨</span>}
+        {(error ?? sync.notice) && (
+          <button
+            type="button"
+            className={cn("truncate text-xs", error ? "text-destructive" : "text-brand")}
+            title="닫기"
+            onClick={() => {
+              setError(undefined);
+              useSync.setState({ notice: null });
+            }}
+          >
+            {error ?? sync.notice}
+          </button>
+        )}
       </div>
 
       <nav aria-label="보기 전환" className="flex flex-wrap gap-1 rounded-lg bg-muted p-1">
@@ -82,7 +105,7 @@ export function TopBar() {
         <Button variant="secondary" size="icon" aria-label="검색" onClick={() => setSearching(true)}>
           <Search />
         </Button>
-        <Button variant="secondary" disabled title="공유 링크는 서버 저장 단계에서 지원합니다">
+        <Button variant="secondary" onClick={() => setSharing(true)}>
           공유
         </Button>
         <DropdownMenu>
@@ -97,6 +120,7 @@ export function TopBar() {
             <DropdownMenuItem onSelect={() => download(`${name}.json`, toJSON(useEditor.getState().project), "application/json")}>JSON 프로젝트</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuLabel>프로젝트</DropdownMenuLabel>
+            <DropdownMenuItem onSelect={() => setOpening(true)}>서버 프로젝트 열기</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => void importJSON()}>JSON 가져오기</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => ed.newProject()}>새 프로젝트</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => ed.loadExample()}>예시 프로젝트 불러오기</DropdownMenuItem>
@@ -107,6 +131,8 @@ export function TopBar() {
         </span>
       </div>
       <SearchDialog open={searching} onOpenChange={setSearching} />
+      <ShareDialog open={sharing} onOpenChange={setSharing} />
+      <OpenProjectDialog open={opening} onOpenChange={setOpening} />
     </header>
   );
 }

@@ -1,9 +1,12 @@
+import { useState } from "react";
 import { Globe, ImagePlus, SquarePlus } from "lucide-react";
+import { CaptureDialog } from "@/components/CaptureDialog";
 import { Button } from "@/components/ui/button";
 import { useEditor } from "@/store/store";
 import { uploadScreenshot } from "@/store/actions";
 
 export function EmptyState() {
+  const [capturing, setCapturing] = useState(false);
   return (
     <div className="canvas-dots flex h-full items-center justify-center p-6">
       <div className="flex max-w-sm flex-col items-center gap-4 rounded-xl bg-white p-8 text-center shadow-pop">
@@ -16,7 +19,7 @@ export function EmptyState() {
           <Button variant="secondary" onClick={() => void uploadScreenshot({ x: 0, y: 0 })}>
             <ImagePlus /> 기준 스크린샷 올리기
           </Button>
-          <Button variant="secondary" disabled title="서버 캡처 단계에서 지원합니다">
+          <Button variant="secondary" onClick={() => setCapturing(true)}>
             <Globe /> URL에서 캡처
           </Button>
         </div>
@@ -24,6 +27,11 @@ export function EmptyState() {
           예시 프로젝트 불러오기
         </button>
       </div>
+      <CaptureDialog
+        open={capturing}
+        onOpenChange={setCapturing}
+        onCaptured={(image, url) => useEditor.getState().addScreen({ name: new URL(url).pathname.split("/").filter(Boolean).pop() ?? "캡처", image, url, position: { x: 0, y: 0 } })}
+      />
     </div>
   );
 }

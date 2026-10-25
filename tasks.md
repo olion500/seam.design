@@ -57,17 +57,22 @@
 - [x] 내보내기 파일 다운로드 브라우저 확인
 
 ## 9. 서버
-- [ ] Bun 서버 + SQLite 프로젝트 저장/목록 API
-- [ ] 클라이언트 서버 저장과 프로젝트 열기
-- [ ] 공유 링크(스냅샷) 만들기와 열기
-- [ ] URL 자동 캡처(헤드리스 크롬)로 기준 스크린샷
-- [ ] React 앱 라이브 시안: 화면별 앱 URL을 iframe으로 띄우고 토큰을 postMessage 브리지로 주입
+- [x] Bun 서버 + SQLite 프로젝트 저장/목록 API
+- [x] 클라이언트 서버 저장과 프로젝트 열기
+- [x] 공유 링크(스냅샷) 만들기와 열기
+- [x] URL 자동 캡처(헤드리스 크롬)로 기준 스크린샷
+- [x] React 앱 라이브 시안: 화면별 앱 URL을 iframe으로 띄우고 토큰을 postMessage 브리지로 주입
 
 ## 구현 메모
-- 실행: `bun install && bun run dev` / 검증: `bun run typecheck`, `bun run test`, `bun run build`
-- 저장: 브라우저 IndexedDB 자동 저장(1.2초), Ctrl/Cmd+S 즉시 저장, Ctrl/Cmd+Z 되돌리기
-- 공유 버튼과 URL 캡처는 서버 단계 전까지 비활성
+- 개발: `bun install && bun run dev` (Vite 5173 + API 서버 5180, /api는 Vite가 프록시)
+- 운영: `bun run build && bun run start` (한 포트에서 dist와 /api를 함께 서빙, 기본 5180)
+- 검증: `bun run typecheck`, `bun run lint`, `bun run test`(Vitest + bun test server), `bun run build`
+- 환경 변수: `PORT`, `SEAM_DATA_DIR`(SQLite 위치, 기본 ./data), `SEAM_CHROME_PATH`(URL 캡처용 Chrome)
+- 저장: 브라우저 IndexedDB에 먼저 저장하고 서버에도 올림. 서버가 꺼져 있으면 "로컬에만 저장됨" 표시
+- 공유: 링크는 그 순간의 사본. 받은 사람이 열면 새 프로젝트로 복제됨
+- 라이브 시안: 대상 React 앱에 `<script src="<편집기 주소>/seam-bridge.js"></script>`를 넣고, 앱 스타일이 `--accent` 같은 토큰 이름의 CSS 변수를 쓰면 토큰 변경이 바로 반영됨. 예시는 `public/demo/checkout.html`
+- URL 캡처는 서버가 주는 URL을 그대로 여는 기능이라 내부망 주소도 열 수 있음. 외부에 공개할 때는 허용 주소 제한이 필요함
 
 ## 열린 질문
 - [x] 대상 앱: 웹(React)으로 확정 (10월 25일)
-- [ ] 기준 화면: 수동 스크린샷으로 충분한가, URL 자동 캡처가 필요한가
+- [ ] 기준 화면: 수동 스크린샷으로 충분한가, URL 자동 캡처가 필요한가 (지금은 둘 다 지원)

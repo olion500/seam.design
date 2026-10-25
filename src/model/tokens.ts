@@ -17,6 +17,12 @@ export function tokenVars(tokens: Token[]): CSSProperties {
   return vars as CSSProperties;
 }
 
+export function bridgeVars(tokens: Token[]): Record<string, string> {
+  const vars: Record<string, string> = {};
+  for (const [key, value] of Object.entries(tokenVars(tokens))) vars[key.replace("--tk-", "--")] = String(value);
+  return vars;
+}
+
 export function colorRef(value: string | undefined): string | undefined {
   if (!value) return undefined;
   return isHex(value) ? value : `var(--tk-${value})`;
