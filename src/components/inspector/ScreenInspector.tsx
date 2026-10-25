@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ArrowRight, Check, Globe, ImagePlus, Trash2, TriangleAlert, X } from "lucide-react";
 import { CaptureDialog } from "@/components/CaptureDialog";
 import { LiveFrame } from "@/components/LiveFrame";
+import { ScreenView } from "@/components/ScreenView";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Eyebrow, Field, Section, StatusBadge, selectClass } from "@/components/bits";
@@ -112,6 +113,8 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
 
       {screen.variant && <VariantEditor screen={screen} spec={screen.variant.spec} />}
 
+      {screen.baseline?.elements && <RequestEditor screen={screen} />}
+
       <LiveSection key={screen.live?.url ?? ""} screen={screen} />
 
       <CaptureDialog
@@ -174,6 +177,84 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
         </div>
       </Section>
     </>
+  );
+}
+
+function RequestEditor({ screen }: { screen: Screen }) {
+  const tokens = useEditor((s) => s.project.tokens);
+  const ed = useEditor.getState();
+  const elements = screen.baseline?.elements ?? [];
+  const [elementKey, setElementKey] = useState("");
+  const [label, setLabel] = useState("");
+  const [note, setNote] = useState("");
+  const requests = screen.requests ?? [];
+  const name = (key?: string) => elements.find((e) => e.key === key)?.label ?? "화면 전체";
+
+  return (
+    <Section title={`변경 요청 ${requests.length}`}>
+      <div className="overflow-hidden rounded-lg border">
+        <ScreenView screen={screen} mode="baseline" width={300} tokens={tokens} focusId={elementKey || null} />
+      </div>
+      <form
+        className="flex flex-col gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!label.trim() && !note.trim()) return;
+          ed.addRequest(screen.id, { elementKey: elementKey || undefined, label: label.trim() || undefined, note: note.trim() });
+          setLabel("");
+          setNote("");
+        }}
+      >
+        <Field label="요소">
+          <select className={selectClass} value={elementKey} onChange={(e) => setElementKey(e.target.value)}>
+            <option value="">화면 전체</option>
+            {elements.map((e) => (
+              <option key={e.key} value={e.key}>
+                {e.role} · {e.label}
+              </option>
+            ))}
+          </select>
+        </Field>
+        {elementKey && (
+          <Field label="바꿀 문구">
+            <Input className="h-9" placeholder={name(elementKey)} value={label} onChange={(e) => setLabel(e.target.value)} />
+          </Field>
+        )}
+        <Field label="메모">
+          <textarea
+            aria-label="변경 메모"
+            rows={2}
+            placeholder="예: 버튼을 더 크게, 간격을 넓게"
+            className="w-full rounded-lg border border-input px-2 py-1.5 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
+        </Field>
+        <Button type="submit" size="sm" variant="brand" className="self-end" disabled={!label.trim() && !note.trim()}>
+          요청 추가
+        </Button>
+      </form>
+      {requests.length > 0 && (
+        <ul className="flex flex-col gap-1 text-sm">
+          {requests.map((r) => (
+            <li key={r.id} className="flex items-start gap-2 rounded-lg bg-muted px-2.5 py-2">
+              <span aria-hidden className="mt-1.5 size-2 shrink-0 rounded-full bg-change" />
+              <span className="flex-1">
+                <b>{name(r.elementKey)}</b>
+                {r.label && ` → “${r.label}”`}
+                {r.note && <span className="block text-muted-foreground">{r.note}</span>}
+              </span>
+              <button type="button" aria-label="요청 삭제" className="text-muted-foreground hover:text-foreground" onClick={() => ed.removeRequest(screen.id, r.id)}>
+                <X className="size-4" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        AI에게 “seam 변경 반영해 줘”라고 하면 이 요청과 바뀐 토큰·전이를 코드에 반영합니다.
+      </p>
+    </Section>
   );
 }
 

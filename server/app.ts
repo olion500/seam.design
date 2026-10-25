@@ -7,6 +7,7 @@ interface AppOptions {
   store: Store;
   capture: Capture;
   staticDir?: string;
+  repoDir?: string;
 }
 
 const json = (data: unknown, status = 200) => Response.json(data, { status });
@@ -29,12 +30,25 @@ class HttpError extends Error {
   }
 }
 
-export function createApp({ store, capture, staticDir }: AppOptions) {
+export function createApp({ store, capture, staticDir, repoDir }: AppOptions) {
+  const seamDir = repoDir ? join(repoDir, ".seam") : undefined;
   async function api(req: Request, path: string[]): Promise<Response> {
     const [resource, id] = path;
     const method = req.method;
 
     if (resource === "health" && method === "GET") return json({ ok: true });
+
+    if (resource === "repo") {
+      if (!seamDir) return fail(404, "레포 모드가 아닙니다");
+      const file = Bun.file(join(seamDir, "project.json"));
+      if (!id && method === "GET") return json({ root: repoDir, hasProject: await file.exists() });
+      if (id === "project" && method === "GET") return (await file.exists()) ? new Response(file, { headers: { "content-type": "application/json" } }) : fail(404, "seam import를 먼저 실행하세요");
+      if (id === "project" && method === "PUT") {
+        const project = await readProject(req);
+        await Bun.write(file, `${JSON.stringify(project, null, 2)}\n`);
+        return json({ updatedAt: Date.now() });
+      }
+    }
 
     if (resource === "projects") {
       if (!id && method === "GET") return json(store.listProjects());
@@ -81,6 +95,10 @@ export function createApp({ store, capture, staticDir }: AppOptions) {
 
   return async function handle(req: Request): Promise<Response> {
     const { pathname } = new URL(req.url);
+    if (seamDir && pathname.startsWith("/repo/")) {
+      const file = Bun.file(join(seamDir, normalize(decodeURIComponent(pathname.slice("/repo".length)))));
+      return (await file.exists()) ? new Response(file) : fail(404, "Not found");
+    }
     if (!pathname.startsWith("/api/")) return serveStatic(pathname);
     try {
       return await api(req, pathname.slice("/api/".length).split("/").filter(Boolean).map(decodeURIComponent));

@@ -27,6 +27,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return (res.status === 204 ? undefined : await res.json()) as T;
 }
 
+export const imageSrc = (image: string) => (/^(data:|https?:|\/)/.test(image) ? image : `/repo/${image}`);
+
 export interface ProjectSummary {
   id: string;
   name: string;
@@ -39,5 +41,8 @@ export const api = {
   putProject: (project: Project) => request<{ updatedAt: number }>("PUT", `/projects/${encodeURIComponent(project.id)}`, project),
   createShare: (project: Project) => request<{ id: string }>("POST", "/shares", project),
   getShare: (id: string) => request<Project>("GET", `/shares/${encodeURIComponent(id)}`),
+  repo: () => request<{ root: string; hasProject: boolean }>("GET", "/repo"),
+  getRepoProject: () => request<Project>("GET", "/repo/project"),
+  putRepoProject: (project: Project) => request<{ updatedAt: number }>("PUT", "/repo/project", project),
   capture: (url: string, width: number, height: number) => request<{ image: string; url: string }>("POST", "/capture", { url, width, height }),
 };

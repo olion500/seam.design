@@ -70,6 +70,7 @@ export function TopBar() {
           </span>
         )}
         {sync.status === "server" && !dirty && <span className="shrink-0 text-xs text-muted-foreground">서버에 저장됨</span>}
+        {sync.status === "repo" && !dirty && <span className="shrink-0 text-xs text-muted-foreground" title={sync.repo ?? ""}>레포에 저장됨</span>}
         {(error ?? sync.notice) && (
           <button
             type="button"

@@ -3,7 +3,7 @@ import { current } from "immer";
 import { immer } from "zustand/middleware/immer";
 import { temporal } from "zundo";
 import { defaultSpec, emptyProject, seedProject } from "@/model/seed";
-import type { MotionPreset, Project, Rule, Screen, ScreenElement, Selection, SourceMapping, Transition, View } from "@/model/types";
+import type { ChangeRequest, MotionPreset, Project, Rule, Screen, ScreenElement, Selection, SourceMapping, Transition, View } from "@/model/types";
 
 const newId = () => crypto.randomUUID().slice(0, 8);
 const today = () => new Date().toLocaleDateString("ko-KR", { month: "long", day: "numeric" });
@@ -39,6 +39,8 @@ export interface EditorState {
   setVariantGap: (screenId: string, gap: string) => void;
   setSources: (screenId: string, sources: SourceMapping[]) => void;
   removeScreen: (id: string) => void;
+  addRequest: (screenId: string, request: Omit<ChangeRequest, "id">) => void;
+  removeRequest: (screenId: string, requestId: string) => void;
 
   addTransition: (t: Pick<Transition, "from" | "to"> & Partial<Transition>) => string;
   updateTransition: (id: string, patch: Partial<Transition>) => void;
@@ -157,6 +159,17 @@ export const useEditor = create<EditorState>()(
           s.project.transitions = s.project.transitions.filter((t) => t.from !== id && t.to !== id);
           s.compareIds = s.compareIds.filter((x) => x !== id);
           if (s.selection?.id === id) s.selection = null;
+        }),
+
+      addRequest: (screenId, request) =>
+        set((s) => {
+          const screen = s.project.screens.find((x) => x.id === screenId);
+          if (screen) screen.requests = [...(screen.requests ?? []), { ...request, id: newId() }];
+        }),
+      removeRequest: (screenId, requestId) =>
+        set((s) => {
+          const screen = s.project.screens.find((x) => x.id === screenId);
+          if (screen) screen.requests = (screen.requests ?? []).filter((r) => r.id !== requestId);
         }),
 
       addTransition: (t) => {

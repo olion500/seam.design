@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { seedProject } from "../src/model/seed";
@@ -68,6 +68,29 @@ describe("capture API", () => {
     expect((await call("POST", "/api/capture", { url: "file:///etc/passwd" })).status).toBe(400);
     expect((await call("POST", "/api/capture", { url: "https://example.com", width: 10 })).status).toBe(400);
     expect(captured).toEqual([]);
+  });
+});
+
+describe("repo mode", () => {
+  it("reads and writes .seam/project.json and serves .seam files only", async () => {
+    const repo = mkdtempSync(join(tmpdir(), "seam-repo-"));
+    mkdirSync(join(repo, ".seam", "screens"), { recursive: true });
+    writeFileSync(join(repo, ".seam", "screens", "HOME.png"), "png");
+    writeFileSync(join(repo, "secret.txt"), "secret");
+    handle = createApp({ store: new Store(":memory:"), capture: async () => "", repoDir: repo });
+
+    expect(await (await call("GET", "/api/repo")).json()).toEqual({ root: repo, hasProject: false });
+    expect((await call("GET", "/api/repo/project")).status).toBe(404);
+    const project = seedProject();
+    expect((await call("PUT", "/api/repo/project", project)).status).toBe(200);
+    expect(await (await call("GET", "/api/repo/project")).json()).toEqual(project);
+
+    expect(await (await call("GET", "/repo/screens/HOME.png")).text()).toBe("png");
+    expect((await call("GET", "/repo/%2E%2E/secret.txt")).status).toBe(404);
+  });
+
+  it("is off without a repo", async () => {
+    expect((await call("GET", "/api/repo")).status).toBe(404);
   });
 });
 

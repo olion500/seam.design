@@ -13,9 +13,9 @@ interface StoredProject {
 const db = new Dexie("seam-design") as Dexie & { projects: EntityTable<StoredProject, "id"> };
 db.version(1).stores({ projects: "id, updatedAt" });
 
-export type SyncStatus = "idle" | "saving" | "server" | "local-only";
+export type SyncStatus = "idle" | "saving" | "server" | "repo" | "local-only";
 
-export const useSync = create<{ status: SyncStatus; notice: string | null }>(() => ({ status: "idle", notice: null }));
+export const useSync = create<{ status: SyncStatus; notice: string | null; repo: string | null }>(() => ({ status: "idle", notice: null, repo: null }));
 
 export async function loadLatest(): Promise<Project | undefined> {
   return (await db.projects.orderBy("updatedAt").last())?.data;
@@ -26,6 +26,11 @@ export async function saveProject(project: Project) {
   await db.projects.put({ id: project.id, data: project, updatedAt: Date.now() });
   useEditor.getState().markSaved(project);
   try {
+    if (useSync.getState().repo && project.source) {
+      await api.putRepoProject(project);
+      useSync.setState({ status: "repo" });
+      return;
+    }
     await api.putProject(project);
     useSync.setState({ status: "server" });
   } catch {
@@ -51,7 +56,14 @@ export async function startPersistence() {
   const shared = shareId ? await openSharedProject(shareId) : null;
   if (shareId) history.replaceState(null, "", "#/flow");
 
-  if (shared) {
+  const repo = shared ? null : await api.repo().catch(() => null);
+  const repoProject = repo?.hasProject ? await api.getRepoProject().catch(() => null) : null;
+  if (repo) useSync.setState({ repo: repo.root });
+
+  if (repoProject) {
+    editor.loadProject(repoProject);
+    useSync.setState({ status: "repo", notice: `${repo?.root}의 .seam/을 열었습니다. 고친 내용은 그 레포에 저장됩니다.` });
+  } else if (shared) {
     editor.loadProject(shared, false);
     useSync.setState({ notice: "공유받은 명세의 사본을 열었습니다. 고쳐도 원본은 바뀌지 않습니다." });
   } else {

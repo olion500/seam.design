@@ -63,6 +63,18 @@
 - [x] URL 자동 캡처(헤드리스 크롬)로 기준 스크린샷
 - [x] React 앱 라이브 시안: 화면별 앱 URL을 iframe으로 띄우고 토큰을 postMessage 브리지로 주입
 
+## 10. seam 스킬 (AI가 직접 오케스트레이션)
+방향: seam은 설치형 스킬(SKILL.md + `seam` CLI)을 제공하고, Claude Code·Codex가 그 스킬로 가져오기, 캡처, 변경 읽기, 코드 반영, 확인을 직접 진행한다. 판단(앱 실행, 샘플 데이터, 코드 위치 찾기, 수정)은 AI가, 결정적인 작업(파싱, 캡처, diff)은 CLI가 맡는다.
+- [x] 대상 레포의 `.seam/` 형식: `seam.json`(앱 실행 명령, 주소, 화면 경로, 토큰 파일, 흐름 문서), `project.json`, `screens/*.png`, `changes/<id>/`
+- [x] `seam` CLI: `init`, `import`, `capture`, `open`, `changes`, `verify`, `done` (모두 JSON 출력)
+- [x] 캡처할 때 웹 DOM에서 요소(역할, 라벨, 위치)를 함께 추출
+- [x] 편집기가 대상 레포의 `.seam/`을 직접 열고 저장 (`seam open`이 로컬 서버를 띄움)
+- [x] 스크린샷 화면의 요소별 수정·메모(변경 요청) 편집
+- [x] 변경 묶음 생성: 토큰 이전/이후와 파일 위치, 요소 변경과 소스 파일·기준 이미지·요소 위치, 전이 추가/삭제 (Mermaid 문서 수정은 AI가 직접)
+- [x] SKILL.md: 가져오기 절차, 변경 반영 절차, 대상 레포 규칙(AGENTS.md 등) 우선
+- [x] 설치: `seam skill install` → `.claude/skills/seam`, `.agents/skills/seam`
+- [x] 첫 적용: coffee의 HOME·PREP1 가져오기, `theme.ts` 토큰 하나 변경, AI 반영, 다시 캡처해 확인
+
 ## 구현 메모
 - 개발: `bun install && bun run dev` (Vite 5173 + API 서버 5180, /api는 Vite가 프록시)
 - 운영: `bun run build && bun run start` (한 포트에서 dist와 /api를 함께 서빙, 기본 5180)
@@ -72,6 +84,13 @@
 - 공유: 링크는 그 순간의 사본. 받은 사람이 열면 새 프로젝트로 복제됨
 - 라이브 시안: 대상 React 앱에 `<script src="<편집기 주소>/seam-bridge.js"></script>`를 넣고, 앱 스타일이 `--accent` 같은 토큰 이름의 CSS 변수를 쓰면 토큰 변경이 바로 반영됨. 예시는 `public/demo/checkout.html`
 - URL 캡처는 서버가 주는 URL을 그대로 여는 기능이라 내부망 주소도 열 수 있음. 외부에 공개할 때는 허용 주소 제한이 필요함
+
+## seam 스킬 메모
+- CLI: `bun <seam.design>/cli/seam.ts <명령> [--repo 경로]`, 모든 출력은 JSON. 테스트는 `bun test cli`
+- 스킬 원본: `skill/seam/SKILL.md`. `seam skill install`이 CLI 절대 경로를 넣어 `.claude/skills/seam`, `.agents/skills/seam`에 복사
+- 편집기 레포 모드: `seam open`이 `SEAM_REPO`로 서버를 띄워 `.seam/project.json`을 읽고 씀 (`/api/repo`, `/repo/<파일>`)
+- coffee 첫 적용(10월 25일): HOME·PREP1 가져오기 → 토큰·문구 변경 → 반영 → verify → done 한 바퀴 확인 후 제품 변경은 되돌림
+- 남은 것: 스킬에 들어가는 CLI 경로가 이 머신(WSL) 절대 경로라 다른 머신이나 Windows의 Codex에서는 그대로 못 씀. seam을 패키지로 배포해 `bunx seam`처럼 부르게 해야 함
 
 ## 열린 질문
 - [x] 대상 앱: 웹(React)으로 확정 (10월 25일)

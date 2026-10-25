@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { ImageIcon } from "lucide-react";
 import { colorRef, lengthRef, tokenVars } from "@/model/tokens";
 import type { Screen, ScreenElement, ScreenSpec, Token } from "@/model/types";
+import { imageSrc } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 interface SpecViewProps {
@@ -189,7 +190,25 @@ export function ScreenView({ screen, mode, width, className, ...rest }: ScreenVi
   const height = (screen.size.h / screen.size.w) * width;
   const variantSpec = mode === "variant" ? screen.variant?.spec : undefined;
   if (!variantSpec && screen.baseline?.image) {
-    return <img src={screen.baseline.image} alt={`${screen.name} 기준`} className={cn("object-cover object-top", className)} style={{ width, height }} />;
+    const scale = width / screen.size.w;
+    const boxes = (screen.baseline.elements ?? []).filter((e) => e.key === rest.focusId || (mode === "variant" && rest.changedIds?.has(e.key)));
+    return (
+      <div className={cn("relative", className)} style={{ width, height }}>
+        <img src={imageSrc(screen.baseline.image)} alt={`${screen.name} 기준`} className="size-full object-cover object-top" />
+        {boxes.map((e) =>
+          e.key === rest.focusId ? (
+            <span
+              key={e.key}
+              aria-hidden
+              className="absolute rounded-sm outline-2 outline-brand"
+              style={{ left: e.box.x * scale, top: e.box.y * scale, width: e.box.w * scale, height: e.box.h * scale }}
+            />
+          ) : (
+            <ChangeDot key={e.key} size={8} style={{ left: (e.box.x + e.box.w) * scale - 4, top: e.box.y * scale - 4 }} />
+          ),
+        )}
+      </div>
+    );
   }
   const spec = variantSpec ?? screen.baseline?.spec;
   if (!spec) return <NoBaseline className={className} compact={width < 200} style={{ width, height }} />;

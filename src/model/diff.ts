@@ -40,8 +40,13 @@ export function diffSpecs(base: ScreenSpec, next: ScreenSpec): Change[] {
 }
 
 export function screenChanges(screen: Screen): Change[] {
-  if (!screen.variant || !screen.baseline?.spec) return [];
-  return diffSpecs(screen.baseline.spec, screen.variant.spec);
+  const requests = (screen.requests ?? []).map((r) => {
+    const el = screen.baseline?.elements?.find((e) => e.key === r.elementKey);
+    const what = [r.label ? `문구 “${r.label}”` : null, r.note || null].filter(Boolean).join(" · ");
+    return { id: `request:${r.id}`, elementId: r.elementKey ?? null, summary: `${el ? el.label : "화면 전체"}: ${what}` };
+  });
+  if (!screen.variant || !screen.baseline?.spec) return requests;
+  return [...diffSpecs(screen.baseline.spec, screen.variant.spec), ...requests];
 }
 
 export function displaySpec(screen: Screen, mode: "baseline" | "variant" = "variant"): ScreenSpec | undefined {
