@@ -13,10 +13,12 @@ import {
 import { ImagePlus, Minus, Plus, SquarePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CompareDrawer } from "@/components/CompareDrawer";
+import { screenChanges } from "@/model/diff";
 import { useRuleState } from "@/store/derived";
 import { useEditor } from "@/store/store";
 import { uploadScreenshot } from "@/store/actions";
 import { EmptyState } from "./EmptyState";
+import { closePreview, hoverNode, leaveNode } from "./preview";
 import { ScreenNode, edgeHandles, type ScreenNodeType } from "./ScreenNode";
 import { TransitionEdge, type TransitionEdgeType } from "./TransitionEdge";
 
@@ -35,13 +37,27 @@ function Canvas() {
 
   useEffect(() => {
     setNodes(
-      project.screens.map((s) => ({
-        id: s.id,
-        type: "screen",
-        position: s.position,
-        selected: selection?.kind === "screen" && selection.id === s.id,
-        data: { screenId: s.id, warnings: warnings.byScreen.get(s.id) ?? [], comparing: compareIds.includes(s.id) },
-      })),
+      project.screens.map((s) => {
+        const selected = selection?.kind === "screen" && selection.id === s.id;
+        const nodeWarnings = warnings.byScreen.get(s.id) ?? [];
+        const changes = screenChanges(s).length;
+        return {
+          id: s.id,
+          type: "screen",
+          position: s.position,
+          selected,
+          ariaLabel: [
+            `${s.name} 화면`,
+            s.variant ? "시안" : "기준",
+            changes ? `변경 ${changes}건` : null,
+            nodeWarnings.length ? `경고: ${nodeWarnings.join(", ")}` : null,
+            selected ? "선택됨" : null,
+          ]
+            .filter(Boolean)
+            .join(", "),
+          data: { screenId: s.id, warnings: nodeWarnings, comparing: compareIds.includes(s.id) },
+        };
+      }),
     );
   }, [project.screens, selection, warnings, compareIds, setNodes]);
 
@@ -90,7 +106,11 @@ function Canvas() {
       nodeTypes={nodeTypes}
       edgeTypes={edgeTypes}
       onNodesChange={onChange}
+      onNodeDragStart={closePreview}
       onNodeDragStop={(_, node) => moveScreen(node.id, node.position)}
+      onNodeMouseEnter={(_, node) => hoverNode(node.id)}
+      onNodeMouseLeave={leaveNode}
+      onMoveStart={closePreview}
       onNodeClick={(e, node) => {
         if (e.shiftKey) toggleCompare(node.id);
         else select({ kind: "screen", id: node.id });
@@ -143,7 +163,7 @@ function ZoomControls() {
   const { zoomIn, zoomOut, fitView } = useReactFlow();
   const { zoom } = useViewport();
   return (
-    <div role="group" aria-label="확대 축소" className="absolute right-4 bottom-4 z-10 flex items-center gap-1 rounded-lg border bg-white p-1">
+    <fieldset aria-label="확대 축소" className="absolute right-4 bottom-4 z-10 flex items-center gap-1 rounded-lg border bg-white p-1">
       <Button variant="ghost" size="icon" aria-label="축소" onClick={() => zoomOut()}>
         <Minus />
       </Button>
@@ -153,7 +173,7 @@ function ZoomControls() {
       <Button variant="ghost" size="icon" aria-label="확대" onClick={() => zoomIn()}>
         <Plus />
       </Button>
-    </div>
+    </fieldset>
   );
 }
 

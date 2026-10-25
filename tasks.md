@@ -10,9 +10,10 @@
 - 기준 화면: 처음엔 스크린샷 업로드만 받고, URL 캡처(Playwright 서버)는 나중에 붙인다.
 
 ## 0. 기반
-- [x] Vite + React + TS + Tailwind v4 + shadcn/ui 초기화, 린트/테스트(Vitest) 설정
+- [x] Vite + React + TS + Tailwind v4 + shadcn/ui 초기화, 테스트(Vitest) 설정
+- [x] 린트(Biome) 설정 — 처음엔 빠져 있었고 나중에 추가
 - [x] 디자인 토큰을 CSS 변수로 정의 (primary #000, surface #F5F5F7, accent #0085E4, hairline #DADCE0, warn #F9BA0D, change #F8521F, radius 8px, Pretendard)
-- [x] shadcn 테마 매핑과 Button 변형(Primary/Filled/Ghost/Accent), Badge(기준/시안), Tabs, Sheet, Slider, Table, Input
+- [x] shadcn 테마 매핑과 Button 변형(Primary/Filled/Ghost/Accent), Slider, Input, Dialog, Dropdown (보기 전환 탭과 기준/시안 배지는 직접 만든 컴포넌트)
 - [x] 앱 셸: 상단 바(제목, 저장 안 됨 점, 보기 전환, 공유, 명세 내보내기) + 캔버스 + 검사기
 
 ## 1. 데이터 모델과 저장
@@ -48,7 +49,19 @@
 
 ## 7. 내보내기와 이후
 - [x] 명세 내보내기(Markdown + JSON)
-- [ ] (나중) 서버 저장과 공유 링크, URL 자동 캡처, 실제 앱 iframe 렌더링
+
+## 8. 개선
+- [ ] hover 미리 보기 지연(350ms)과 드래그·이동 중 닫기
+- [ ] 좁은 화면: 검사기를 오버레이로
+- [ ] 보기별 코드 분할로 번들 축소
+- [ ] 내보내기 파일 다운로드 브라우저 확인
+
+## 9. 서버
+- [ ] Bun 서버 + SQLite 프로젝트 저장/목록 API
+- [ ] 클라이언트 서버 저장과 프로젝트 열기
+- [ ] 공유 링크(스냅샷) 만들기와 열기
+- [ ] URL 자동 캡처(헤드리스 크롬)로 기준 스크린샷
+- [ ] React 앱 라이브 시안: 화면별 앱 URL을 iframe으로 띄우고 토큰을 postMessage 브리지로 주입
 
 ## 구현 메모
 - 실행: `bun install && bun run dev` / 검증: `bun run typecheck`, `bun run test`, `bun run build`
@@ -56,5 +69,5 @@
 - 공유 버튼과 URL 캡처는 서버 단계 전까지 비활성
 
 ## 열린 질문
-- [ ] 대상 앱: 웹(React)인가, 모바일 네이티브인가
+- [x] 대상 앱: 웹(React)으로 확정 (10월 25일)
 - [ ] 기준 화면: 수동 스크린샷으로 충분한가, URL 자동 캡처가 필요한가

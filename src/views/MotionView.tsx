@@ -84,7 +84,7 @@ export function MotionView() {
                 <b>{from.name}</b> → <b>{to.name}</b>
                 <span className="text-muted-foreground">· {preset.name} 프리셋으로 재생</span>
               </div>
-              <TransitionPlayer key={`${transition!.id}-${preset.id}-${reduced}`} from={from} to={to} preset={preset} width={220} reduced={reduced} autoPlayKey={playKey} />
+              <TransitionPlayer key={`${transition?.id}-${preset.id}-${reduced}`} from={from} to={to} preset={preset} width={220} reduced={reduced} autoPlayKey={playKey} />
             </>
           ) : (
             <p className="text-sm text-muted-foreground">재생할 전이가 없습니다. 흐름 보기에서 전이를 만드세요.</p>

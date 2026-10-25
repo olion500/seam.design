@@ -1,10 +1,11 @@
-import { memo, useRef, useState } from "react";
+import { memo, useState } from "react";
 import { Handle, NodeToolbar, Position, type Node, type NodeProps } from "@xyflow/react";
 import { ScreenView } from "@/components/ScreenView";
 import { StatusBadge, WarnIcon } from "@/components/bits";
 import { screenChanges } from "@/model/diff";
 import { useEditor } from "@/store/store";
 import { cn } from "@/lib/utils";
+import { keepPreview, leaveNode, usePreview } from "./preview";
 
 export const NODE_WIDTH = 160;
 const THUMB = NODE_WIDTH - 16;
@@ -34,9 +35,8 @@ function ScreenNodeImpl({ data, selected }: NodeProps<ScreenNodeType>) {
   const screen = useEditor((s) => s.project.screens.find((x) => x.id === data.screenId));
   const tokens = useEditor((s) => s.project.tokens);
   const focusChange = useEditor((s) => s.focusChange);
-  const [hover, setHover] = useState(false);
+  const hover = usePreview((s) => s.id === data.screenId);
   const [previewMode, setPreviewMode] = useState<"baseline" | "variant">("baseline");
-  const leaveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   if (!screen) return null;
   const changes = screenChanges(screen);
@@ -44,29 +44,8 @@ function ScreenNodeImpl({ data, selected }: NodeProps<ScreenNodeType>) {
   const focusId = selected ? changes.find((c) => c.id === focusChange)?.elementId : null;
   const hasVariant = !!screen.variant;
 
-  const enter = () => {
-    clearTimeout(leaveTimer.current);
-    setHover(true);
-  };
-  const leave = () => {
-    leaveTimer.current = setTimeout(() => setHover(false), 160);
-  };
-
-  const label = [
-    `${screen.name} 화면`,
-    hasVariant ? "시안" : "기준",
-    changes.length ? `변경 ${changes.length}건` : null,
-    data.warnings.length ? `경고: ${data.warnings.join(", ")}` : null,
-    selected ? "선택됨" : null,
-  ]
-    .filter(Boolean)
-    .join(", ");
-
   return (
     <div
-      aria-label={label}
-      onMouseEnter={enter}
-      onMouseLeave={leave}
       className={cn(
         "relative flex flex-col gap-2 rounded-lg border bg-white p-2 shadow-soft transition-transform",
         selected && "border-2 border-brand p-[7px] shadow-[0_0_0_4px_rgb(0_133_228/0.16)]",
@@ -106,18 +85,20 @@ function ScreenNodeImpl({ data, selected }: NodeProps<ScreenNodeType>) {
       </div>
       {data.warnings.length > 0 && <WarnIcon title={data.warnings.join("\n")} className="absolute -top-2.5 -right-2.5" />}
 
-      <NodeToolbar isVisible={hover} position={Position.Right} offset={16}>
-        <div
-          onMouseEnter={enter}
-          onMouseLeave={leave}
-          aria-label={`${screen.name} 미리 보기`}
-          className="flex w-[232px] flex-col gap-2.5 rounded-xl bg-white p-3 shadow-pop"
-        >
+      <NodeToolbar
+        isVisible={hover}
+        position={Position.Right}
+        offset={16}
+        onMouseEnter={keepPreview}
+        onMouseLeave={leaveNode}
+        aria-label={`${screen.name} 미리 보기`}
+      >
+        <div className="flex w-[232px] flex-col gap-2.5 rounded-xl bg-white p-3 shadow-pop">
           <div className="flex items-baseline justify-between">
             <span className="text-sm font-bold">{screen.name}</span>
             <span className="text-xs text-muted-foreground">미리 보기</span>
           </div>
-          <div role="group" aria-label="기준 또는 시안 보기" className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
+          <fieldset aria-label="기준 또는 시안 보기" className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
             {(["baseline", "variant"] as const).map((m) => (
               <button
                 key={m}
@@ -133,7 +114,7 @@ function ScreenNodeImpl({ data, selected }: NodeProps<ScreenNodeType>) {
                 {m === "baseline" ? "기준" : "시안"}
               </button>
             ))}
-          </div>
+          </fieldset>
           <div className="overflow-hidden rounded-md">
             <ScreenView screen={screen} mode={previewMode} width={208} tokens={tokens} />
           </div>

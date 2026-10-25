@@ -28,7 +28,7 @@ export function CompareDrawer() {
         <span className="text-sm text-muted-foreground">
           {screens.map((s) => s.name).join(" · ")} · 전이 {between.length}개
         </span>
-        <div role="group" aria-label="비교 방식" className="ml-auto flex gap-1 rounded-lg bg-muted p-1">
+        <fieldset aria-label="비교 방식" className="ml-auto flex gap-1 rounded-lg bg-muted p-1">
           {(
             [
               ["side", "나란히"],
@@ -45,13 +45,13 @@ export function CompareDrawer() {
               {label}
             </button>
           ))}
-        </div>
+        </fieldset>
         {mode === "overlay" && (
-          <label className="flex items-center gap-3 text-sm">
-            시안 투명도
+          <div className="flex items-center gap-3 text-sm">
+            <span aria-hidden>시안 투명도</span>
             <Slider aria-label="시안 투명도" className="w-32" value={[opacity]} max={100} step={1} onValueChange={([v]) => setOpacity(v)} />
             <span className="w-10 text-right font-bold tabular-nums">{opacity}%</span>
-          </label>
+          </div>
         )}
         <Button variant="secondary" size="icon" aria-label="비교 닫기" onClick={clearCompare}>
           <X />
@@ -96,9 +96,10 @@ export function CompareDrawer() {
           </div>
         ))}
         {between.map((t) => {
-          const from = project.screens.find((s) => s.id === t.from)!;
-          const to = project.screens.find((s) => s.id === t.to)!;
+          const from = project.screens.find((s) => s.id === t.from);
+          const to = project.screens.find((s) => s.id === t.to);
           const preset = project.motions.find((m) => m.id === t.motionId);
+          if (!from || !to) return null;
           return (
             <div key={t.id} className="flex shrink-0 flex-col gap-2 border-l pl-8">
               <button type="button" className="text-left text-sm font-bold hover:text-brand" onClick={() => select({ kind: "transition", id: t.id })}>

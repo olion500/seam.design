@@ -184,7 +184,7 @@ function TokenInspector({ token }: { token: Token }) {
         </div>
         {invalid && <p className="text-xs text-destructive">#RRGGBB 형식으로 입력하세요</p>}
         {token.kind === "color" && (
-          <div role="group" aria-label="빠른 선택" className="flex gap-2">
+          <fieldset aria-label="빠른 선택" className="flex gap-2">
             {QUICK.map((c) => (
               <button
                 key={c}
@@ -195,7 +195,7 @@ function TokenInspector({ token }: { token: Token }) {
                 onClick={() => ed.updateToken(token.name, c)}
               />
             ))}
-          </div>
+          </fieldset>
         )}
       </Section>
       <Section title={`쓰는 화면 ${users.length}`} action={<span className="text-[13px] text-muted-foreground">즉시 갱신</span>}>
@@ -340,14 +340,15 @@ function RuleInspector({ rule }: { rule: Rule }) {
       <Section title={`위반 ${result?.violations.length ?? 0}`}>
         {result?.violations.length ? (
           <ul className="flex flex-col gap-1 text-sm">
-            {result.violations.map((v, i) => (
-              <li key={i}>
+            {result.violations.map((v) => (
+              <li key={`${v.screenId ?? v.transitionId}-${v.message}`}>
                 <button
                   type="button"
                   className="text-left hover:text-brand"
                   onClick={() => {
                     ed.setView("flow");
-                    ed.select(v.screenId ? { kind: "screen", id: v.screenId } : { kind: "transition", id: v.transitionId! });
+                    if (v.screenId) ed.select({ kind: "screen", id: v.screenId });
+                    else if (v.transitionId) ed.select({ kind: "transition", id: v.transitionId });
                   }}
                 >
                   {v.message}

@@ -187,11 +187,11 @@ interface ScreenViewProps extends Omit<SpecViewProps, "spec" | "size"> {
 
 export function ScreenView({ screen, mode, width, className, ...rest }: ScreenViewProps) {
   const height = (screen.size.h / screen.size.w) * width;
-  const useVariant = mode === "variant" && screen.variant;
-  if (!useVariant && screen.baseline?.image) {
+  const variantSpec = mode === "variant" ? screen.variant?.spec : undefined;
+  if (!variantSpec && screen.baseline?.image) {
     return <img src={screen.baseline.image} alt={`${screen.name} 기준`} className={cn("object-cover object-top", className)} style={{ width, height }} />;
   }
-  const spec = useVariant ? screen.variant!.spec : screen.baseline?.spec;
+  const spec = variantSpec ?? screen.baseline?.spec;
   if (!spec) return <NoBaseline className={className} compact={width < 200} style={{ width, height }} />;
   return (
     <div className={className}>

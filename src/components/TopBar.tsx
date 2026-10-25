@@ -9,7 +9,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { parseProject, toJSON, toMarkdown } from "@/model/exportSpec";
 import type { View } from "@/model/types";
 import { isDirty, useEditor } from "@/store/store";
@@ -83,16 +82,9 @@ export function TopBar() {
         <Button variant="secondary" size="icon" aria-label="검색" onClick={() => setSearching(true)}>
           <Search />
         </Button>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span tabIndex={0}>
-              <Button variant="secondary" disabled>
-                공유
-              </Button>
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>공유 링크는 서버 저장 단계에서 지원합니다</TooltipContent>
-        </Tooltip>
+        <Button variant="secondary" disabled title="공유 링크는 서버 저장 단계에서 지원합니다">
+          공유
+        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button>
@@ -110,7 +102,7 @@ export function TopBar() {
             <DropdownMenuItem onSelect={() => ed.loadExample()}>예시 프로젝트 불러오기</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <span aria-label="sanghun oh" title="sanghun oh" className="ml-1 flex size-8 items-center justify-center rounded-full bg-chip text-xs font-bold">
+        <span role="img" aria-label="sanghun oh" title="sanghun oh" className="ml-1 flex size-8 items-center justify-center rounded-full bg-chip text-xs font-bold">
           SO
         </span>
       </div>

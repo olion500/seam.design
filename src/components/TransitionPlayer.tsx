@@ -52,9 +52,11 @@ export function TransitionPlayer({ from, to, preset, width = 150, reduced: force
     raf.current = requestAnimationFrame(tick);
   };
 
+  const playRef = useRef(play);
+  playRef.current = play;
   useEffect(() => () => cancelAnimationFrame(raf.current), []);
   useEffect(() => {
-    if (autoPlayKey) play();
+    if (autoPlayKey) playRef.current();
   }, [autoPlayKey]);
 
   const frames = frameStyles(motion, progress);
@@ -63,7 +65,7 @@ export function TransitionPlayer({ from, to, preset, width = 150, reduced: force
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="relative overflow-hidden rounded-lg bg-muted" style={{ width, height }} aria-label={`${from.name}에서 ${to.name}로 전환`}>
+      <div role="img" className="relative overflow-hidden rounded-lg bg-muted" style={{ width, height }} aria-label={`${from.name}에서 ${to.name}로 전환`}>
         <div className="absolute inset-0" style={frames.from}>
           <ScreenView screen={from} mode="variant" width={width} tokens={tokens} />
         </div>

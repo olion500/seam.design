@@ -44,14 +44,9 @@ export function RulesView() {
           const where = [...new Set(violations.map((v) => screenName(v.screenId) ?? v.message.split(":")[0]))].join(", ");
           return (
             <li key={rule.id}>
-              <div
-                role="button"
-                tabIndex={0}
-                aria-pressed={active}
-                onClick={() => select({ kind: "rule", id: rule.id })}
-                onKeyDown={(e) => e.key === "Enter" && select({ kind: "rule", id: rule.id })}
+              <article
                 className={cn(
-                  "flex h-full cursor-pointer flex-col gap-3 rounded-xl bg-white p-5 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                  "relative flex h-full flex-col gap-3 rounded-xl bg-white p-5 text-left focus-within:ring-[3px] focus-within:ring-ring/50",
                   active && "shadow-[inset_0_0_0_2px_var(--brand)]",
                   !rule.enabled && "opacity-60",
                 )}
@@ -62,7 +57,16 @@ export function RulesView() {
                     연결 {scopeLabel} {scope}
                   </span>
                 </div>
-                <h3 className="text-lg font-bold tracking-tight">{rule.title}</h3>
+                <h3 className="text-lg font-bold tracking-tight">
+                  <button
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => select({ kind: "rule", id: rule.id })}
+                    className="text-left outline-none after:absolute after:inset-0 after:rounded-xl"
+                  >
+                    {rule.title}
+                  </button>
+                </h3>
                 <p className="flex-1 text-sm leading-relaxed text-muted-foreground">{rule.description}</p>
                 <div className="flex items-center justify-between gap-2">
                   <span
@@ -73,12 +77,12 @@ export function RulesView() {
                   >
                     {!rule.enabled ? "꺼짐" : violations.length ? `위반 ${violations.length} · ${where}` : "모두 통과"}
                   </span>
-                  <label className="flex items-center gap-1.5 text-[13px]" onClick={(e) => e.stopPropagation()}>
+                  <label className="relative z-10 flex items-center gap-1.5 text-[13px]">
                     <input type="checkbox" checked={rule.enabled} onChange={(e) => updateRule(rule.id, { enabled: e.target.checked })} />
                     사용
                   </label>
                 </div>
-              </div>
+              </article>
             </li>
           );
         })}

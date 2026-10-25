@@ -16,7 +16,10 @@ export interface RuleResult {
 }
 
 export function runRule(project: Project, rule: Rule): RuleResult {
-  const screens = project.screens.filter((s) => displaySpec(s));
+  const screens = project.screens.flatMap((s) => {
+    const spec = displaySpec(s);
+    return spec ? [{ s, spec }] : [];
+  });
   const result = (violations: Violation[], scope = screens.length, scopeLabel: RuleResult["scopeLabel"] = "화면"): RuleResult => ({
     rule,
     scope,
@@ -27,17 +30,17 @@ export function runRule(project: Project, rule: Rule): RuleResult {
   switch (rule.check) {
     case "single-primary":
       return result(
-        screens.flatMap((s) => {
-          const n = displaySpec(s)!.elements.filter((e) => e.kind === "button" && (e.variant === "primary" || e.variant === "accent")).length;
+        screens.flatMap(({ s, spec }) => {
+          const n = spec.elements.filter((e) => e.kind === "button" && (e.variant === "primary" || e.variant === "accent")).length;
           return n > 1 ? [{ screenId: s.id, message: `${s.name}: 주요 버튼 ${n}개` }] : [];
         }),
       );
     case "touch-target": {
       const min = rule.params?.minSize ?? 48;
       return result(
-        screens.flatMap((s) =>
-          displaySpec(s)!
-            .elements.filter((e) => e.kind === "button" && (e.height ?? 56) < min)
+        screens.flatMap(({ s, spec }) =>
+          spec.elements
+            .filter((e) => e.kind === "button" && (e.height ?? 56) < min)
             .map((e) => ({ screenId: s.id, message: `${s.name}: ${e.name} 높이 ${e.height}px` })),
         ),
       );
@@ -50,11 +53,11 @@ export function runRule(project: Project, rule: Rule): RuleResult {
         project.screens.length,
       );
     case "token-colors": {
-      const withVariant = project.screens.filter((s) => s.variant);
+      const withVariant = project.screens.flatMap((s) => (s.variant ? [{ s, spec: s.variant.spec }] : []));
       const names = new Set(project.tokens.filter((t) => t.kind === "color").map((t) => t.name));
       return result(
-        withVariant.flatMap((s) =>
-          s.variant!.spec.elements.flatMap((e) =>
+        withVariant.flatMap(({ s, spec }) =>
+          spec.elements.flatMap((e) =>
             [e.fill, e.stroke]
               .filter((v): v is string => !!v && (isHex(v) || !names.has(v)))
               .map((v) => ({ screenId: s.id, message: `${s.name}: ${e.name} 색 ${v}` })),

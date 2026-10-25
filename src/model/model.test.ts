@@ -44,7 +44,7 @@ describe("rules", () => {
 
   it("returns no violations for a disabled rule", () => {
     const p = seedProject();
-    p.rules.forEach((r) => (r.enabled = false));
+    for (const r of p.rules) r.enabled = false;
     expect(runRules(p).every((r) => r.violations.length === 0)).toBe(true);
   });
 

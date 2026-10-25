@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Eyebrow, Field, Section, StatusBadge, selectClass } from "@/components/bits";
 import { screenChanges } from "@/model/diff";
 import { tokensInSpec } from "@/model/tokens";
-import type { ButtonVariant, Screen, ScreenElement } from "@/model/types";
+import type { ButtonVariant, Screen, ScreenElement, ScreenSpec } from "@/model/types";
 import { uploadBaseline } from "@/store/actions";
 import { useRuleState } from "@/store/derived";
 import { useEditor } from "@/store/store";
@@ -104,7 +104,7 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
         </Section>
       )}
 
-      {screen.variant && <VariantEditor screen={screen} />}
+      {screen.variant && <VariantEditor screen={screen} spec={screen.variant.spec} />}
 
       {screenRules.length > 0 && spec && (
         <Section title="규칙" action={<LinkButton onClick={() => ed.setView("rules")}>규칙 보기</LinkButton>}>
@@ -162,10 +162,10 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
   );
 }
 
-function VariantEditor({ screen }: { screen: Screen }) {
+function VariantEditor({ screen, spec }: { screen: Screen; spec: ScreenSpec }) {
   const tokens = useEditor((s) => s.project.tokens);
   const ed = useEditor.getState();
-  const elements = screen.variant!.spec.elements.filter((e) => e.kind !== "spacer");
+  const elements = spec.elements.filter((e) => e.kind !== "spacer");
   const [elementId, setElementId] = useState(elements[0]?.id);
   const el = elements.find((e) => e.id === elementId) ?? elements[0];
   const colors = tokens.filter((t) => t.kind === "color");
@@ -189,7 +189,7 @@ function VariantEditor({ screen }: { screen: Screen }) {
   return (
     <Section title="시안 편집">
       <Field label="목록 간격">
-        <select className={selectClass} value={screen.variant!.spec.gap} onChange={(e) => ed.setVariantGap(screen.id, e.target.value)}>
+        <select className={selectClass} value={spec.gap} onChange={(e) => ed.setVariantGap(screen.id, e.target.value)}>
           {spaces.map((t) => (
             <option key={t.name} value={t.name}>
               {t.name} · {t.value}
@@ -251,7 +251,7 @@ function SourcesEditor({ screen, tokens }: { screen: Screen; tokens: string[] })
     <Section title="소스 매핑">
       <ul className="flex flex-col gap-2 text-[13px]">
         {screen.sources.map((m, i) => (
-          <li key={`${m.path}-${i}`} className="group flex items-start gap-2 rounded-lg bg-muted px-2.5 py-2">
+          <li key={`${m.path}|${m.note}`} className="group flex items-start gap-2 rounded-lg bg-muted px-2.5 py-2">
             <span className="flex flex-1 flex-col gap-0.5">
               <code className="font-mono">{m.path}</code>
               <span className="text-muted-foreground">{m.note}</span>

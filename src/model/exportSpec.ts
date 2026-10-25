@@ -41,7 +41,7 @@ export function toMarkdown(project: Project): string {
     const status = !r.rule.enabled ? "꺼짐" : r.violations.length ? `위반 ${r.violations.length}` : "통과";
     out.push(`- **${r.rule.title}** — ${status}`, ...r.violations.map((v) => `  - ${v.message}`));
   }
-  return out.join("\n") + "\n";
+  return `${out.join("\n")}\n`;
 }
 
 export function toJSON(project: Project): string {
