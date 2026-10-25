@@ -10,6 +10,7 @@ import type { Direction, EasingName, MotionKind, MotionPreset, Rule, Token, Tran
 import { useRuleState } from "@/store/derived";
 import { useEditor } from "@/store/store";
 import { EASING_LABEL } from "@/lib/transition";
+import { cn } from "@/lib/utils";
 import { LinkButton, ScreenInspector } from "./ScreenInspector";
 
 export function Inspector() {
@@ -35,7 +36,14 @@ export function Inspector() {
   }
 
   return (
-    <aside aria-label="검사기" className="w-[360px] shrink-0 overflow-y-auto border-l bg-white max-lg:w-[300px]">
+    <aside
+      aria-label="검사기"
+      className={cn(
+        "w-[360px] shrink-0 overflow-y-auto border-l bg-white",
+        "max-lg:absolute max-lg:inset-y-0 max-lg:right-0 max-lg:z-30 max-lg:w-[min(360px,100%)] max-lg:shadow-pop",
+        !selection && "max-lg:hidden",
+      )}
+    >
       {body}
     </aside>
   );

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TopBar } from "@/components/TopBar";
 import { Inspector } from "@/components/inspector/Inspector";
@@ -6,9 +6,10 @@ import type { View } from "@/model/types";
 import { saveProject } from "@/store/persist";
 import { redo, undo, useEditor } from "@/store/store";
 import { FlowView } from "@/views/flow/FlowView";
-import { MotionView } from "@/views/MotionView";
-import { RulesView } from "@/views/RulesView";
-import { SystemView } from "@/views/SystemView";
+
+const SystemView = lazy(() => import("@/views/SystemView").then((m) => ({ default: m.SystemView })));
+const RulesView = lazy(() => import("@/views/RulesView").then((m) => ({ default: m.RulesView })));
+const MotionView = lazy(() => import("@/views/MotionView").then((m) => ({ default: m.MotionView })));
 
 const VIEWS: View[] = ["flow", "system", "rules", "motion"];
 const viewFromHash = (): View => {
@@ -75,11 +76,13 @@ export function App() {
     <TooltipProvider>
       <div className="flex h-full flex-col">
         <TopBar />
-        <div className="flex min-h-0 flex-1">
+        <div className="relative flex min-h-0 flex-1">
           {view === "flow" && <FlowView />}
-          {view === "system" && <SystemView />}
-          {view === "rules" && <RulesView />}
-          {view === "motion" && <MotionView />}
+          <Suspense fallback={<div className="flex-1 bg-muted" />}>
+            {view === "system" && <SystemView />}
+            {view === "rules" && <RulesView />}
+            {view === "motion" && <MotionView />}
+          </Suspense>
           <Inspector />
         </div>
       </div>
