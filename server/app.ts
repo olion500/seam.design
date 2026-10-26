@@ -1,15 +1,29 @@
 import { renameSync } from "node:fs";
-import { join, normalize } from "node:path";
+import { basename, join, normalize } from "node:path";
 import { parseProject } from "../src/model/exportSpec";
-import { type AgentWaiting, SENT_FILE, type SentToAgent, WAITING_FILE } from "../src/model/types";
+import {
+  type AgentReview,
+  type AgentWaiting,
+  type Change,
+  type ReviewDecision,
+  type ReviewState,
+  SENT_FILE,
+  type SentToAgent,
+  type VerifyReport,
+  WAITING_FILE,
+} from "../src/model/types";
 import { type Capture, CaptureError, parseCaptureRequest } from "./capture";
 import type { Store } from "./db";
+
+/** Finishes a reviewed round (`seam done`) and returns the archive folder. */
+export type Finish = (repoDir: string, force: boolean) => Promise<{ archived: string }>;
 
 interface AppOptions {
   store: Store;
   capture: Capture;
   staticDir?: string;
   repoDir?: string;
+  finish?: Finish;
 }
 
 const json = (data: unknown, status = 200) => Response.json(data, { status });
@@ -41,6 +55,46 @@ async function readSendMessage(req: Request) {
   return message.trim();
 }
 
+/** Adds to `.seam/changes/sent.json`; written then renamed so a polling `seam wait` never reads half a file. */
+async function writeSent(seamDir: string, text: string, review?: AgentReview) {
+  const sent = Bun.file(join(seamDir, SENT_FILE));
+  const previous: SentToAgent = (await sent.exists()) ? await sent.json() : { messages: [] };
+  const at = new Date().toISOString();
+  const next: SentToAgent = { messages: text ? [...previous.messages, { at, text }] : previous.messages, ...((review ?? previous.review) && { review: review ?? previous.review }) };
+  const tmp = `${sent.name}.${process.pid}.tmp`;
+  await Bun.write(tmp, `${JSON.stringify(next, null, 2)}\n`);
+  renameSync(tmp, join(seamDir, SENT_FILE));
+  return at;
+}
+
+async function readReview(seamDir: string): Promise<ReviewState | null> {
+  const dir = join(seamDir, "changes", "pending");
+  const changeFile = Bun.file(join(dir, "change.json"));
+  if (!(await changeFile.exists())) return null;
+  const { changes } = (await changeFile.json()) as { changes: Change[] };
+  const verifyFile = Bun.file(join(dir, "verify.json"));
+  if (!(await verifyFile.exists())) return { changes, verify: null };
+  const report = (await verifyFile.json()) as VerifyReport;
+  return { changes, verify: { ...report, after: report.after.map((a) => ({ ...a, file: `changes/pending/after/${basename(a.image)}` })) } };
+}
+
+async function readDecisions(req: Request, count: number): Promise<ReviewDecision[]> {
+  const body = (await req.json().catch(() => null)) as { decisions?: unknown } | null;
+  const list = body?.decisions;
+  const valid =
+    Array.isArray(list) &&
+    list.every(
+      (d) =>
+        d && typeof d.index === "number" && typeof d.ok === "boolean" && (d.note === undefined || (typeof d.note === "string" && d.note.length <= 2000)),
+    );
+  if (!valid) throw new HttpError(400, "decisions는 { index, ok, note? } 목록이어야 합니다");
+  const decisions = list as ReviewDecision[];
+  const indexes = new Set(decisions.map((d) => d.index));
+  if (indexes.size !== decisions.length || indexes.size !== count || decisions.some((d) => d.index < 0 || d.index >= count))
+    throw new HttpError(400, `변경 ${count}건 모두에 대해 한 번씩 결정해야 합니다`);
+  return decisions;
+}
+
 class HttpError extends Error {
   constructor(
     readonly status: number,
@@ -50,7 +104,7 @@ class HttpError extends Error {
   }
 }
 
-export function createApp({ store, capture, staticDir, repoDir }: AppOptions) {
+export function createApp({ store, capture, staticDir, repoDir, finish }: AppOptions) {
   const seamDir = repoDir ? join(repoDir, ".seam") : undefined;
   async function api(req: Request, path: string[]): Promise<Response> {
     const [resource, id] = path;
@@ -63,16 +117,33 @@ export function createApp({ store, capture, staticDir, repoDir }: AppOptions) {
       const file = Bun.file(join(seamDir, "project.json"));
       if (!id && method === "GET") return json({ root: repoDir, hasProject: await file.exists(), agentWaiting: await agentWaiting(seamDir) });
       if (id === "send" && method === "POST") {
-        const message = await readSendMessage(req);
-        const sent = Bun.file(join(seamDir, SENT_FILE));
-        const previous: SentToAgent = (await sent.exists()) ? await sent.json() : { messages: [] };
-        const at = new Date().toISOString();
-        const next: SentToAgent = { messages: message ? [...previous.messages, { at, text: message }] : previous.messages };
-        // Write then rename so a polling `seam wait` never reads a half-written file.
-        const tmp = `${sent.name}.${process.pid}.tmp`;
-        await Bun.write(tmp, `${JSON.stringify(next, null, 2)}\n`);
-        renameSync(tmp, join(seamDir, SENT_FILE));
+        const at = await writeSent(seamDir, await readSendMessage(req));
         return json({ sentAt: at, agentWaiting: await agentWaiting(seamDir) });
+      }
+      if (id === "review" && method === "GET") {
+        const review = await readReview(seamDir);
+        return review ? json(review) : fail(404, "검토할 변경이 없습니다");
+      }
+      if (id === "review" && method === "POST") {
+        const review = await readReview(seamDir);
+        if (!review) return fail(404, "검토할 변경이 없습니다");
+        if (!review.verify) return fail(409, "아직 확인(seam verify) 결과가 없습니다");
+        const decisions = await readDecisions(req, review.changes.length);
+        const rejected = decisions.filter((d) => !d.ok).map((d) => ({ ...d, change: review.changes[d.index] }));
+        if (rejected.length === 0) {
+          if (!finish || !repoDir) return fail(501, "이 서버는 마무리(seam done)를 실행할 수 없습니다");
+          let archived: string;
+          try {
+            ({ archived } = await finish(repoDir, !review.verify.ok));
+          } catch (e) {
+            return fail(500, `마무리 실패: ${e instanceof Error ? e.message : String(e)}`);
+          }
+          await writeSent(seamDir, `검토: 모두 승인해서 마무리했습니다 (${archived})`, { approved: true, archived });
+          return json({ approved: true, archived, agentWaiting: await agentWaiting(seamDir) });
+        }
+        const lines = rejected.map((r) => `- #${r.index + 1}${r.note ? `: ${r.note}` : ""}`);
+        await writeSent(seamDir, [`검토: ${rejected.length}건 다시 요청`, ...lines].join("\n"), { approved: false, rejected });
+        return json({ approved: false, rejected: rejected.length, agentWaiting: await agentWaiting(seamDir) });
       }
       if (id === "project" && method === "GET") return (await file.exists()) ? new Response(file, { headers: { "content-type": "application/json" } }) : fail(404, "seam import를 먼저 실행하세요");
       if (id === "project" && method === "PUT") {

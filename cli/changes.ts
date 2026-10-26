@@ -1,40 +1,7 @@
-import type { Project } from "../src/model/types";
+import type { Change, ElementChange, Project, TokenChange, TransitionChange } from "../src/model/types";
+
+export type { Change, ElementChange, TokenChange, TransitionChange };
 import { transitionKey } from "./repo";
-
-export interface TokenChange {
-  kind: "token";
-  token: string;
-  path: string;
-  file: string;
-  line: number;
-  before: string;
-  after: string;
-}
-
-export interface ElementChange {
-  kind: "element";
-  screen: string;
-  screenName: string;
-  route?: string;
-  sources: string[];
-  baselineImage?: string;
-  element?: { key: string; role: string; label: string; box: { x: number; y: number; w: number; h: number } };
-  label?: string;
-  note: string;
-  requestId: string;
-}
-
-export interface TransitionChange {
-  kind: "transition";
-  change: "added" | "removed";
-  from: string;
-  to: string;
-  label: string;
-  trigger: string;
-  condition: string;
-}
-
-export type Change = TokenChange | ElementChange | TransitionChange;
 
 export function pendingChanges(project: Project): Change[] {
   const source = project.source ?? { tokens: {}, transitions: [] };

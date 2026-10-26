@@ -14,7 +14,7 @@
 | `cli.test.ts` | bun:test. 임시 디렉터리에 가짜 레포를 만들어 테스트 |
 
 ## `.seam/` LAYOUT (대상 레포)
-`seam.json`(설정) / `project.json`(편집기와 공유하는 `Project`) / `screens/*.png` / `changes/pending/`(change.json, README.md, after/) / `changes/<timestamp>/`(보관본) / `changes/sent.json`(편집기 'AI에게 보내기', `seam wait`가 소비) / `changes/waiting.json`(`seam wait` 대기 중 표시, pid). 두 파일 이름은 `src/model/types.ts`의 `SENT_FILE`, `WAITING_FILE`을 서버와 함께 쓴다
+`seam.json`(설정) / `project.json`(편집기와 공유하는 `Project`) / `screens/*.png` / `changes/pending/`(change.json, README.md, after/) / `changes/<timestamp>/`(보관본) / `changes/sent.json`(편집기 'AI에게 보내기'와 검토 결과 `review`, `seam wait`가 소비) / `changes/waiting.json`(`seam wait` 대기 중 표시, pid). 두 파일 이름은 `src/model/types.ts`의 `SENT_FILE`, `WAITING_FILE`을 서버와 함께 쓴다
 
 ## CONVENTIONS
 - 모든 출력은 stdout에 `JSON.stringify(..., null, 2)`로 낸다. 실패하면 `{ "error": ... }`. 사람용 텍스트는 `HELP`뿐이다.
@@ -24,6 +24,7 @@
 - 대상 앱 가정: Expo Router 웹, 기본 URL `http://localhost:8081`, 토큰 파일은 `theme.ts` 계열.
 - `seam open`은 `dist/`가 없으면 먼저 `bun run build`를 하고, `SEAM_REPO`를 설정해 `server/index.ts`를 production 모드로 띄운다(기본 포트 5190).
 - `seam wait`는 0.5초 간격으로 `sent.json`을 확인한다(WSL의 /mnt 경로에서는 파일 감시가 불안정해서). 서버는 `sent.json`을 임시 파일에 쓰고 rename해 반쯤 쓴 파일을 읽지 않게 한다.
+- 검토: 편집기의 검토 창이 `change.json`과 `verify.json`을 읽고(`GET /api/repo/review`), 모두 승인하면 서버가 `seam done`(필요하면 `--force`)을 직접 실행한다(`server/index.ts`의 `finish`). 다시 요청은 `sent.json`의 `review.rejected`로 에이전트에게 간다.
 - `seam skill install`은 SKILL.md의 `{{SEAM}}`을 `bun <절대경로>/cli/seam.ts`로 바꿔 `.claude/skills/seam`과 `.agents/skills/seam`에 복사한다.
 
 ## ANTI-PATTERNS

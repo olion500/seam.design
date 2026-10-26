@@ -56,7 +56,10 @@ The editor has an **AI에게 보내기** button (repo mode only). It saves the p
 4. With the app running, `seam verify`. It checks token values in the token file, looks for new labels on a fresh capture, checks flow edges in the flow document, and saves after-screenshots in `.seam/changes/pending/after/`.
    - `fail`: not applied yet, or the app is still serving old code. Check the after-screenshot; if it shows the old UI, restart the dev server (with its cache cleared) and verify again before touching the code.
    - `review`: needs your judgment. Compare the baseline and after images for that screen and decide whether the note is satisfied; if not, keep working.
-5. When everything passes and every `review` item truly matches, `seam done`. It makes the after-screenshots the new baseline, clears the applied requests, and archives the change set under `.seam/changes/<timestamp>/`. Commit `.seam/` together with the code change if the repo tracks it.
+5. Let the user review. Tell them the result is ready and to press **검토** in the editor, then run `seam wait`. The editor shows each change with its baseline and after-screenshot side by side; the user approves or sends items back with a note.
+   - `review.approved: true`: the editor already ran `seam done` (after-screenshots became the new baseline, requests were cleared, the set is archived under `review.archived`). Report what changed. Commit `.seam/` together with the code change if the repo tracks it.
+   - `review.approved: false`: `review.rejected` lists the changes sent back, each with the user's `note` and the `change` it refers to. Fix those (the approved ones stay as they are), run the repo's checks, `seam verify` again, and wait for the next review.
+   - Only run `seam done` yourself when the user tells you so in the chat instead of using the editor.
 
 ## Render modes and live token preview
 
@@ -72,5 +75,5 @@ In live mode the editor appends `?seam-tokens=<JSON>` to every app URL: an objec
 - If the editor shows that some baseline screenshots were taken at another device size (the user switched devices), run `seam capture` again with the app running.
 
 - `seam verify --no-capture`: check tokens and flows without running the app (element items become `review`).
-- `seam done --force`: archive even with failures. Only when the user explicitly says so.
+- `seam done --force`: archive even with failures. Only when the user explicitly says so (approving every item in the editor's review counts, and the editor does it for you).
 - `seam skill install --dir <repo>`: install this skill into another repository.

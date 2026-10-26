@@ -187,6 +187,10 @@ describe("seam CLI round trip", () => {
     expect(await (await app(new Request("http://test/api/repo"))).json()).toMatchObject({ agentWaiting: true });
     await send("");
     expect((await later).json).toMatchObject({ sent: true, messages: [], count: 1 });
+
+    const review = { approved: false, rejected: [{ index: 0, ok: false, note: "아직 작음" }] };
+    writeFileSync(join(root, ".seam/changes/sent.json"), JSON.stringify({ messages: [{ at: "t", text: "검토: 1건 다시 요청" }], review }));
+    expect((await seam(root, "wait", "--timeout", "5")).json).toMatchObject({ sent: true, review, count: 1 });
   });
 
   it("reports missing configured paths as a JSON error", async () => {

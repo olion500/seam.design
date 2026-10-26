@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { seedProject } from "../src/model/seed";
+import type { Change, ReviewState, SentToAgent } from "../src/model/types";
 import { createApp } from "./app";
 import type { CaptureRequest } from "./capture";
 import { Store } from "./db";
@@ -108,6 +109,48 @@ describe("repo mode", () => {
     await dead.exited;
     writeFileSync(waiting, JSON.stringify({ pid: dead.pid, since: "now" }));
     expect(await (await call("GET", "/api/repo")).json()).toMatchObject({ agentWaiting: false });
+  });
+
+  it("shows the pending round for review and takes approve or send-back decisions", async () => {
+    const repo = mkdtempSync(join(tmpdir(), "seam-repo-"));
+    const finished: { repoDir: string; force: boolean }[] = [];
+    handle = createApp({
+      store: new Store(":memory:"),
+      capture: async () => "",
+      repoDir: repo,
+      finish: async (repoDir, force) => {
+        finished.push({ repoDir, force });
+        return { archived: ".seam/changes/2026-10-27T00-00-00" };
+      },
+    });
+    const pending = join(repo, ".seam/changes/pending");
+    const sent = async () => (await Bun.file(join(repo, ".seam/changes/sent.json")).json()) as SentToAgent;
+    const changes: Change[] = [
+      { kind: "token", token: "colors-primary", path: "colors.primary", file: "theme.ts", line: 2, before: "#000", after: "#111" },
+      { kind: "element", screen: "HOME", screenName: "홈", sources: [], note: "더 크게", requestId: "r1" },
+    ];
+
+    expect((await call("GET", "/api/repo/review")).status).toBe(404);
+    mkdirSync(pending, { recursive: true });
+    writeFileSync(join(pending, "change.json"), JSON.stringify({ changes }));
+    expect(await (await call("GET", "/api/repo/review")).json()).toEqual({ changes, verify: null });
+    expect((await call("POST", "/api/repo/review", { decisions: [] })).status).toBe(409);
+
+    const shot = { id: "HOME", url: "http://x/", image: join(pending, "after", "HOME.png"), elements: [], size: { w: 402, h: 874 } };
+    writeFileSync(join(pending, "verify.json"), JSON.stringify({ checkedAt: "t", ok: false, results: [], after: [shot] }));
+    const review = (await (await call("GET", "/api/repo/review")).json()) as ReviewState;
+    expect(review.verify?.after[0].file).toBe("changes/pending/after/HOME.png");
+
+    expect((await call("POST", "/api/repo/review", { decisions: [{ index: 0, ok: true }] })).status).toBe(400);
+    const back = await call("POST", "/api/repo/review", { decisions: [{ index: 0, ok: true }, { index: 1, ok: false, note: "아직 작음" }] });
+    expect(await back.json()).toMatchObject({ approved: false, rejected: 1 });
+    expect((await sent()).review).toEqual({ approved: false, rejected: [{ index: 1, ok: false, note: "아직 작음", change: changes[1] }] });
+    expect(finished).toEqual([]);
+
+    const done = await call("POST", "/api/repo/review", { decisions: [{ index: 0, ok: true }, { index: 1, ok: true }] });
+    expect(await done.json()).toMatchObject({ approved: true, archived: ".seam/changes/2026-10-27T00-00-00" });
+    expect(finished).toEqual([{ repoDir: repo, force: true }]);
+    expect((await sent()).review).toEqual({ approved: true, archived: ".seam/changes/2026-10-27T00-00-00" });
   });
 
   it("is off without a repo", async () => {

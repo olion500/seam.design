@@ -2,7 +2,7 @@
 import { cpSync, existsSync, mkdirSync, renameSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { DEFAULT_DEVICE, DEVICES, type DeviceId, deviceOf } from "../src/model/devices";
-import { type AgentWaiting, type CapturedElement, type Project, SENT_FILE, type SentToAgent, WAITING_FILE } from "../src/model/types";
+import { type AgentWaiting, type Project, SENT_FILE, type SentToAgent, type VerifyReport, type VerifyResult, WAITING_FILE } from "../src/model/types";
 import { openBrowser } from "./capture";
 import { type Change, changeMarkdown, pendingChanges } from "./changes";
 import { expoRoutes, loadTokens, mermaidFlows } from "./parse";
@@ -211,16 +211,9 @@ async function cmdWait(root: string, args: Args) {
   } finally {
     rmSync(waiting, { force: true });
   }
-  const { messages } = await readJSON<SentToAgent>(sent);
+  const { messages, review } = await readJSON<SentToAgent>(sent);
   rmSync(sent);
-  print({ sent: true, messages, ...(await writePending(root)) });
-}
-
-interface VerifyResult {
-  index: number;
-  kind: Change["kind"];
-  status: "pass" | "fail" | "review";
-  detail: string;
+  print({ sent: true, messages, ...(review && { review }), ...(await writePending(root)) });
 }
 
 async function cmdVerify(root: string, args: Args) {
@@ -264,7 +257,7 @@ async function cmdVerify(root: string, args: Args) {
     }
   });
 
-  const report = {
+  const report: VerifyReport = {
     checkedAt: new Date().toISOString(),
     ok: results.every((r) => r.status !== "fail"),
     results,
@@ -276,7 +269,7 @@ async function cmdVerify(root: string, args: Args) {
 
 async function cmdDone(root: string, args: Args) {
   const dir = pendingDir(root);
-  const report = await readJSON<{ ok: boolean; after: { id: string; url: string; image: string; elements: CapturedElement[]; size: { w: number; h: number } }[] }>(join(dir, "verify.json"));
+  const report = await readJSON<VerifyReport>(join(dir, "verify.json"));
   if (!report.ok && !args.flags.force) throw new SeamError("verify에 실패한 항목이 있습니다. 고친 뒤 다시 'seam verify' (무시하려면 --force)");
   const { changes } = await readJSON<{ changes: Change[] }>(join(dir, "change.json"));
   const project = await readJSON<Project>(projectPath(root));

@@ -154,6 +154,88 @@ export interface ProjectSource {
   transitions: string[];
 }
 
+/** One pending change in `.seam/changes/pending/change.json` (written by `seam changes`). */
+export interface TokenChange {
+  kind: "token";
+  token: string;
+  path: string;
+  file: string;
+  line: number;
+  before: string;
+  after: string;
+}
+
+export interface ElementChange {
+  kind: "element";
+  screen: string;
+  screenName: string;
+  route?: string;
+  sources: string[];
+  baselineImage?: string;
+  element?: { key: string; role: string; label: string; box: { x: number; y: number; w: number; h: number } };
+  label?: string;
+  note: string;
+  requestId: string;
+}
+
+export interface TransitionChange {
+  kind: "transition";
+  change: "added" | "removed";
+  from: string;
+  to: string;
+  label: string;
+  trigger: string;
+  condition: string;
+}
+
+export type Change = TokenChange | ElementChange | TransitionChange;
+
+/** `.seam/changes/pending/verify.json`, written by `seam verify`. */
+export interface VerifyResult {
+  index: number;
+  kind: Change["kind"];
+  status: "pass" | "fail" | "review";
+  detail: string;
+}
+
+export interface VerifyShot {
+  id: string;
+  url: string;
+  /** Absolute path as written by the CLI. */
+  image: string;
+  elements: CapturedElement[];
+  size: { w: number; h: number };
+}
+
+export interface VerifyReport {
+  checkedAt: string;
+  ok: boolean;
+  results: VerifyResult[];
+  after: VerifyShot[];
+}
+
+/** What the editor shows for review: verify shots carry `.seam`-relative image paths. */
+export interface ReviewState {
+  changes: Change[];
+  verify: (Omit<VerifyReport, "after"> & { after: (VerifyShot & { file: string })[] }) | null;
+}
+
+/** The user's call on one change after looking at the result. */
+export interface ReviewDecision {
+  index: number;
+  ok: boolean;
+  note?: string;
+}
+
+/** Review outcome handed to the agent through `seam wait`. */
+export interface AgentReview {
+  approved: boolean;
+  /** Archive folder when the editor finished the round (`seam done`). */
+  archived?: string;
+  /** Changes sent back, each with the user's note. */
+  rejected?: (ReviewDecision & { change?: Change })[];
+}
+
 /** Hand-off between the editor (server) and `seam wait` (CLI), relative to `.seam/`. */
 export const SENT_FILE = "changes/sent.json";
 export const WAITING_FILE = "changes/waiting.json";
@@ -161,6 +243,7 @@ export const WAITING_FILE = "changes/waiting.json";
 /** `.seam/changes/sent.json`: the user pressed send; messages pile up until an agent picks them up. */
 export interface SentToAgent {
   messages: { at: string; text: string }[];
+  review?: AgentReview;
 }
 
 /** `.seam/changes/waiting.json`: a `seam wait` process is listening. */
