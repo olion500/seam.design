@@ -32,11 +32,34 @@ export function Eyebrow({ children }: { children: ReactNode }) {
   return <span className="text-sm font-bold tracking-wider text-muted-foreground">{children}</span>;
 }
 
+const propLabel = "text-xs font-medium text-muted-foreground";
+
+/** An editable property: small name on top, the control below at full width. */
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className="grid grid-cols-[88px_1fr] items-center gap-3 text-sm">
-      <span className="text-muted-foreground">{label}</span>
+    <label className="flex flex-col gap-1.5 text-sm">
+      <span className={propLabel}>{label}</span>
       {children}
+    </label>
+  );
+}
+
+/** A read-only property in the same stacked shape as `Field`. */
+export function Prop({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
+  return (
+    <div className={cn("flex min-w-0 flex-col gap-1", className)}>
+      <span className={propLabel}>{label}</span>
+      <div className="text-sm">{children}</div>
+    </div>
+  );
+}
+
+/** A yes/no property: checkbox and its name on one line. */
+export function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex min-h-9 cursor-pointer items-center gap-2.5 text-sm">
+      <input type="checkbox" className="size-4 accent-black" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      {label}
     </label>
   );
 }

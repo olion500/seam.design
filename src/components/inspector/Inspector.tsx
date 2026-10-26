@@ -1,7 +1,7 @@
 import { Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Eyebrow, Field, Section, selectClass } from "@/components/bits";
+import { Eyebrow, Field, Prop, Section, Toggle, selectClass } from "@/components/bits";
 import { ScreenView } from "@/components/ScreenView";
 import { TransitionPlayer } from "@/components/TransitionPlayer";
 import { displaySpec } from "@/model/diff";
@@ -111,9 +111,7 @@ function TransitionInspector({ transition: t }: { transition: Transition }) {
             ))}
           </select>
         </Field>
-        <Field label="조건부">
-          <input type="checkbox" aria-label="조건부 전이 (점선)" checked={t.conditional} onChange={(e) => patch({ conditional: e.target.checked })} />
-        </Field>
+        <Toggle label="조건부 전이 (점선으로 표시)" checked={t.conditional} onChange={(v) => patch({ conditional: v })} />
       </Section>
       <Section
         title="모션"
@@ -138,12 +136,10 @@ function TransitionInspector({ transition: t }: { transition: Transition }) {
           </select>
         </Field>
         {preset && (
-          <dl className="grid grid-cols-[88px_1fr] gap-x-3 gap-y-2 text-sm">
-            <dt className="text-muted-foreground">이징</dt>
-            <dd>{EASING_LABEL[preset.easing]}</dd>
-            <dt className="text-muted-foreground">모션 줄이기</dt>
-            <dd>{preset.reduced ? `${preset.reduced.kind === "fade" ? "페이드" : "즉시"} ${preset.reduced.durationMs}ms` : "그대로"}</dd>
-          </dl>
+          <div className="grid grid-cols-2 gap-4">
+            <Prop label="이징">{EASING_LABEL[preset.easing]}</Prop>
+            <Prop label="모션 줄이기">{preset.reduced ? `${preset.reduced.kind === "fade" ? "페이드" : "즉시"} ${preset.reduced.durationMs}ms` : "그대로"}</Prop>
+          </div>
         )}
       </Section>
       <Section title="관리">
@@ -341,9 +337,7 @@ function RuleInspector({ rule }: { rule: Rule }) {
     <>
       <Header eyebrow={`규칙 · ${rule.category}`} title={rule.title} sub={rule.description} />
       <Section title="설정">
-        <Field label="사용">
-          <input type="checkbox" aria-label="규칙 사용" checked={rule.enabled} onChange={(e) => ed.updateRule(rule.id, { enabled: e.target.checked })} />
-        </Field>
+        <Toggle label="이 규칙 사용" checked={rule.enabled} onChange={(v) => ed.updateRule(rule.id, { enabled: v })} />
         {rule.check === "touch-target" && (
           <Field label="최소 크기">
             <Input

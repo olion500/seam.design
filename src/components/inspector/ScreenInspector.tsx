@@ -4,7 +4,7 @@ import { CaptureDialog } from "@/components/CaptureDialog";
 import { ScreenView } from "@/components/ScreenView";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Eyebrow, Field, Section, StatusBadge, selectClass } from "@/components/bits";
+import { Eyebrow, Field, Prop, Section, StatusBadge, Toggle, selectClass } from "@/components/bits";
 import { deviceOf } from "@/model/devices";
 import { screenChanges } from "@/model/diff";
 import { tokensInSpec } from "@/model/tokens";
@@ -56,58 +56,51 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
       {screen.baseline?.elements && <RequestEditor screen={screen} />}
 
       <Section title="속성">
-        <dl className="grid grid-cols-[88px_1fr] gap-x-3 gap-y-2.5 text-sm">
-          <dt className="text-muted-foreground">크기</dt>
-          <dd>
-            {device.width} × {device.height} <span className="text-muted-foreground">{device.name}</span>
-            {screen.baseline?.image && (screen.size.w !== device.width || screen.size.h !== device.height) && (
-              <span className="block text-[13px] text-muted-foreground">
-                기준 캡처는 {screen.size.w} × {screen.size.h} · 다시 찍으면 맞춰집니다
-              </span>
+        <div className="grid grid-cols-2 gap-4">
+          <Prop label="크기">
+            {device.width} × {device.height}
+            <span className="block text-xs text-muted-foreground">{device.name}</span>
+          </Prop>
+          <Prop label="기준">
+            <span className="flex items-center gap-1.5">
+              {screen.baseline ? screen.baseline.capturedAt ?? "있음" : "없음"}
+              <button type="button" className="text-muted-foreground hover:text-brand" onClick={() => void uploadBaseline(screen.id)} aria-label="기준 스크린샷 올리기" title="스크린샷 올리기">
+                <ImagePlus className="size-4" />
+              </button>
+              <button type="button" className="text-muted-foreground hover:text-brand" onClick={() => setCapturing(true)} aria-label="URL에서 기준 캡처" title="주소에서 캡처">
+                <Globe className="size-4" />
+              </button>
+            </span>
+          </Prop>
+        </div>
+        {screen.baseline?.image && (screen.size.w !== device.width || screen.size.h !== device.height) && (
+          <p className="rounded-lg bg-warn/15 px-3 py-2 text-xs leading-relaxed">
+            기준 캡처는 {screen.size.w} × {screen.size.h}입니다. seam capture로 다시 찍으면 맞춰집니다.
+          </p>
+        )}
+        {!imported && (
+          <Prop label="시안">
+            {screen.variant ? (
+              `v${screen.variant.version} · ${screen.variant.updatedAt}`
+            ) : (
+              <Button size="sm" variant="brand" onClick={() => ed.createVariant(screen.id)}>
+                시안 만들기
+              </Button>
             )}
-          </dd>
-          <dt className="text-muted-foreground">기준</dt>
-          <dd className="flex items-center gap-2">
-            {screen.baseline ? screen.baseline.capturedAt ?? "있음" : "기준 이미지 없음"}
-            <button type="button" className="text-brand" onClick={() => void uploadBaseline(screen.id)} aria-label="기준 스크린샷 올리기">
-              <ImagePlus className="size-4" />
-            </button>
-            <button type="button" className="text-brand" onClick={() => setCapturing(true)} aria-label="URL에서 기준 캡처">
-              <Globe className="size-4" />
-            </button>
-          </dd>
-          {!imported && (
-            <>
-              <dt className="text-muted-foreground">시안</dt>
-              <dd>
-                {screen.variant ? (
-                  `v${screen.variant.version} · ${screen.variant.updatedAt}`
-                ) : (
-                  <Button size="sm" variant="brand" onClick={() => ed.createVariant(screen.id)}>
-                    시안 만들기
-                  </Button>
-                )}
-              </dd>
-            </>
-          )}
-          <dt className="text-muted-foreground">앱 주소</dt>
-          <dd>
-            <AppUrl key={screen.live?.url ?? ""} screen={screen} />
-          </dd>
-          <dt className="text-muted-foreground">상태</dt>
-          <dd>
-            <Input
-              aria-label="화면 상태"
-              className="h-8"
-              defaultValue={screen.states.join(" · ")}
-              onBlur={(e) => ed.updateScreen(screen.id, { states: e.target.value.split(/[·,]/).map((x) => x.trim()).filter(Boolean) })}
-            />
-          </dd>
-          <dt className="text-muted-foreground">마지막 화면</dt>
-          <dd>
-            <input type="checkbox" aria-label="마지막 화면" checked={!!screen.terminal} onChange={(e) => ed.updateScreen(screen.id, { terminal: e.target.checked })} />
-          </dd>
-        </dl>
+          </Prop>
+        )}
+        <Field label="앱 주소">
+          <AppUrl key={screen.live?.url ?? ""} screen={screen} />
+        </Field>
+        <Field label="상태">
+          <Input
+            aria-label="화면 상태"
+            className="h-9"
+            defaultValue={screen.states.join(" · ")}
+            onBlur={(e) => ed.updateScreen(screen.id, { states: e.target.value.split(/[·,]/).map((x) => x.trim()).filter(Boolean) })}
+          />
+        </Field>
+        <Toggle label="마지막 화면 (나가는 전이가 없어도 됨)" checked={!!screen.terminal} onChange={(v) => ed.updateScreen(screen.id, { terminal: v })} />
       </Section>
 
       {screen.variant && (
@@ -335,7 +328,7 @@ function AppUrl({ screen }: { screen: Screen }) {
       <Input
         aria-label="앱 주소"
         placeholder="http://localhost:5173/checkout"
-        className="h-8 min-w-0 font-mono text-xs"
+        className="h-9 min-w-0 font-mono text-xs"
         value={url}
         onChange={(e) => setUrl(e.target.value)}
         onBlur={apply}
