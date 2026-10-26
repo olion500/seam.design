@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Cloud, CloudOff, Ellipsis, FolderGit2, Search, Send, Share2 } from "lucide-react";
-import { Tip } from "@/components/bits";
+import { Tip, blurOnEnter } from "@/components/bits";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -56,6 +56,7 @@ export function TopBar() {
         <span aria-hidden className="h-5 w-px bg-border" />
         <input
           aria-label="프로젝트 이름"
+          onKeyDown={blurOnEnter}
           value={name}
           onChange={(e) => ed.renameProject(e.target.value)}
           className="min-w-0 truncate rounded px-1 text-[15px] font-semibold outline-none focus:bg-muted"

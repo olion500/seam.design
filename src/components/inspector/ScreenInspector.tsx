@@ -4,7 +4,7 @@ import { CaptureDialog } from "@/components/CaptureDialog";
 import { ScreenView } from "@/components/ScreenView";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { AddButton, Eyebrow, Field, Prop, Section, StatusBadge, Tip, Toggle, quietInput, selectClass } from "@/components/bits";
+import { AddButton, Eyebrow, Field, Prop, Section, StatusBadge, Tip, Toggle, blurOnEnter, quietInput, selectClass } from "@/components/bits";
 import { deviceOf } from "@/model/devices";
 import { screenChanges } from "@/model/diff";
 import { tokensInSpec } from "@/model/tokens";
@@ -35,6 +35,7 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
           <Eyebrow>화면</Eyebrow>
           <input
             aria-label="화면 이름"
+            onKeyDown={blurOnEnter}
             value={screen.name}
             onChange={(e) => ed.updateScreen(screen.id, { name: e.target.value })}
             className="-mx-1 rounded px-1 text-xl font-bold tracking-tight outline-none focus:bg-muted"
@@ -87,6 +88,7 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
         <Field label="상태">
           <Input
             aria-label="화면 상태"
+            onKeyDown={blurOnEnter}
             className={cn("h-9", quietInput)}
             defaultValue={screen.states.join(" · ")}
             onBlur={(e) => ed.updateScreen(screen.id, { states: e.target.value.split(/[·,]/).map((x) => x.trim()).filter(Boolean) })}
@@ -362,7 +364,7 @@ function AppUrl({ screen }: { screen: Screen }) {
         value={url}
         onChange={(e) => setUrl(e.target.value)}
         onBlur={apply}
-        onKeyDown={(e) => e.key === "Enter" && apply()}
+        onKeyDown={blurOnEnter}
       />
       {screen.live?.url && (
         <a href={screen.live.url} target="_blank" rel="noreferrer" aria-label="앱 주소를 새 탭에서 열기" className="shrink-0 text-muted-foreground hover:text-brand">
@@ -419,7 +421,7 @@ function VariantEditor({ screen, spec }: { screen: Screen; spec: ScreenSpec }) {
       </Field>
       {el && el.label !== undefined && (
         <Field label="문구">
-          <Input className={cn("h-9", quietInput)} value={el.label} onChange={(e) => patch({ label: e.target.value })} />
+          <Input className={cn("h-9", quietInput)} onKeyDown={blurOnEnter} value={el.label} onChange={(e) => patch({ label: e.target.value })} />
         </Field>
       )}
       {el?.kind === "button" && (
@@ -434,7 +436,7 @@ function VariantEditor({ screen, spec }: { screen: Screen; spec: ScreenSpec }) {
             </select>
           </Field>
           <Field label="높이">
-            <Input className={cn("h-9", quietInput)} type="number" min={24} max={96} value={el.height ?? 56} onChange={(e) => patch({ height: Number(e.target.value) })} />
+            <Input className={cn("h-9", quietInput)} onKeyDown={blurOnEnter} type="number" min={24} max={96} value={el.height ?? 56} onChange={(e) => patch({ height: Number(e.target.value) })} />
           </Field>
         </>
       )}
@@ -450,25 +452,37 @@ function VariantEditor({ screen, spec }: { screen: Screen; spec: ScreenSpec }) {
 
 function SourcesEditor({ screen, tokens }: { screen: Screen; tokens: string[] }) {
   const ed = useEditor.getState();
-  const [adding, setAdding] = useState(false);
+  // A new row being typed, Figma-style: "+" adds it straight to the list, Enter or leaving the row keeps it.
+  const [draft, setDraft] = useState<{ path: string; note: string } | null>(null);
   const pathRef = useRef<HTMLInputElement>(null);
+  // Enter and the row losing focus can both fire for one draft; only the first one may add it.
+  const settled = useRef(false);
+  const open = draft !== null;
   useEffect(() => {
-    if (adding) pathRef.current?.focus();
-  }, [adding]);
-  const [path, setPath] = useState("");
-  const [note, setNote] = useState("");
-  const close = () => {
-    setAdding(false);
-    setPath("");
-    setNote("");
+    if (!open) return;
+    settled.current = false;
+    pathRef.current?.focus();
+  }, [open]);
+  const commit = () => {
+    if (settled.current) return;
+    settled.current = true;
+    if (draft?.path.trim()) ed.setSources(screen.id, [...screen.sources, { path: draft.path.trim(), note: draft.note.trim() || "화면 일부" }]);
+    setDraft(null);
   };
-  const add = () => {
-    if (!path.trim()) return;
-    ed.setSources(screen.id, [...screen.sources, { path: path.trim(), note: note.trim() || "화면 일부" }]);
-    close();
+  const cancel = () => {
+    settled.current = true;
+    setDraft(null);
+  };
+  const onKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.nativeEvent.isComposing) return;
+    if (e.key === "Enter") commit();
+    if (e.key === "Escape") cancel();
   };
   return (
-    <Section title="소스 매핑" action={<AddButton label={adding ? "닫기" : "소스 파일 추가"} open={adding} onClick={() => (adding ? close() : setAdding(true))} />}>
+    <Section
+      title="소스 매핑"
+      action={<AddButton label={open ? "닫기" : "소스 파일 추가"} open={open} onClick={() => (open ? cancel() : setDraft({ path: "", note: "" }))} />}
+    >
       <ul className="flex flex-col gap-2 text-[13px]">
         {screen.sources.map((m, i) => (
           <li key={`${m.path}|${m.note}`} className="group flex items-start gap-2 rounded-lg bg-muted px-2.5 py-2">
@@ -486,6 +500,32 @@ function SourcesEditor({ screen, tokens }: { screen: Screen; tokens: string[] })
             </button>
           </li>
         ))}
+        {draft && (
+          <li
+            className="flex flex-col gap-0.5 rounded-lg bg-muted px-2.5 py-1.5 ring-2 ring-brand/40"
+            onBlur={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) commit();
+            }}
+          >
+            <input
+              ref={pathRef}
+              aria-label="소스 경로"
+              placeholder="src/screens/Checkout.tsx"
+              className="bg-transparent font-mono outline-none placeholder:text-muted-foreground/70"
+              value={draft.path}
+              onChange={(e) => setDraft({ ...draft, path: e.target.value })}
+              onKeyDown={onKey}
+            />
+            <input
+              aria-label="매핑 설명"
+              placeholder="설명 (선택)"
+              className="bg-transparent text-muted-foreground outline-none placeholder:text-muted-foreground/70"
+              value={draft.note}
+              onChange={(e) => setDraft({ ...draft, note: e.target.value })}
+              onKeyDown={onKey}
+            />
+          </li>
+        )}
         {tokens.length > 0 && (
           <li className="flex flex-col gap-0.5 rounded-lg bg-muted px-2.5 py-2">
             <code className="font-mono">{tokens.join(" · ")}</code>
@@ -493,34 +533,6 @@ function SourcesEditor({ screen, tokens }: { screen: Screen; tokens: string[] })
           </li>
         )}
       </ul>
-      {adding && (
-        <form
-          className="flex flex-col gap-2 rounded-lg border p-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            add();
-          }}
-          onKeyDown={(e) => e.key === "Escape" && close()}
-        >
-          <Input
-            aria-label="소스 경로"
-            ref={pathRef}
-            placeholder="src/screens/Checkout.tsx"
-            className="h-9 font-mono text-[13px]"
-            value={path}
-            onChange={(e) => setPath(e.target.value)}
-          />
-          <Input aria-label="매핑 설명" placeholder="설명 (선택) · 예: 결제 버튼" className="h-9" value={note} onChange={(e) => setNote(e.target.value)} />
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" size="sm" onClick={close}>
-              취소
-            </Button>
-            <Button type="submit" size="sm" disabled={!path.trim()}>
-              추가
-            </Button>
-          </div>
-        </form>
-      )}
     </Section>
   );
 }

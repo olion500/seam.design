@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { AlertTriangle, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -51,6 +51,11 @@ const propLabel = "text-xs font-medium text-muted-foreground";
 /** Input that reads as plain text until hovered or focused, so the panel looks read-only but edits in place. */
 export const quietInput =
   "-mx-2 w-[calc(100%+1rem)] border-transparent bg-transparent px-2 shadow-none hover:border-input focus-visible:border-ring focus-visible:bg-white";
+
+/** Enter finishes an in-place edit: leave the field so blur handlers apply it. Ignored while an IME (Korean) is composing. */
+export function blurOnEnter(e: KeyboardEvent<HTMLInputElement>) {
+  if (e.key === "Enter" && !e.nativeEvent.isComposing) e.currentTarget.blur();
+}
 
 /** "+" for a section header: opens that section's add form. */
 export function AddButton({ label, open, onClick }: { label: string; open: boolean; onClick: () => void }) {

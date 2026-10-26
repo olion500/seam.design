@@ -40,7 +40,7 @@ export function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChan
           placeholder="화면, 토큰, 규칙, 모션 검색"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && hits[0] && go(hits[0])}
+          onKeyDown={(e) => e.key === "Enter" && !e.nativeEvent.isComposing && hits[0] && go(hits[0])}
         />
         <ul className="flex max-h-80 flex-col overflow-y-auto">
           {hits.map((h) => (
