@@ -33,10 +33,21 @@ Every command prints JSON. A JSON object with `error` means the command failed; 
 3. Start the app (`app.command`) in the background and wait until `app.url` responds. Keep its file watching on: do not set `CI=true` (Expo/Metro disable reloads in CI mode), or later `seam verify` captures will show the old code.
 4. `seam capture [screen ids] [--device iphone|galaxy]` emulates the project's phone (`iphone` = iPhone 18 Pro 402×874, the default; `galaxy` = Galaxy S26 360×780; the user can switch it in the editor) and saves a screenshot and the visible elements (role, label, box) of each screen. Look at the screenshots in `.seam/screens/`. If a screen is empty or wrong because it needs data, a login, or a particular state, fix that (sample data, params) and capture again rather than accepting a misleading baseline.
 5. `seam open` starts the editor on this repo's `.seam/` (default `http://localhost:5190/`). Keep it running in the background and give the user the URL.
+6. Tell the user to press **AI에게 보내기** in the editor when their requests are ready, and run `seam wait` (see below). When it returns, continue with Workflow B from step 2.
+
+## Waiting for the user's send
+
+The editor has an **AI에게 보내기** button (repo mode only). It saves the project and drops `.seam/changes/sent.json` with an optional message from the user.
+
+- `seam wait` blocks until that file appears, consumes it, writes the change set exactly like `seam changes`, and prints `{ "sent": true, "messages": [{ "at", "text" }], "count", "changes", ... }`. If the user already pressed send before you started waiting, it returns at once.
+- While it runs, the editor shows the user that an AI is waiting.
+- Your shell may cap how long a command can run. Then use `seam wait --timeout <seconds>` below that cap; on `{ "sent": false, "timedOut": true }` run it again. Do not treat a timeout as the user being done.
+- `messages` are instructions from the user for this round. Read them together with the change set; they win over your own guesses. `count: 0` with messages means the user is asking something without new edits.
+- After you finish a round (`seam done`, or a report to the user), run `seam wait` again if the user wants to keep iterating in the editor.
 
 ## Workflow B: apply the user's seam changes to the code
 
-1. `seam changes` writes `.seam/changes/pending/change.json` and `README.md` and prints the list. Kinds:
+1. `seam changes` (or the output of `seam wait`) writes `.seam/changes/pending/change.json` and `README.md` and prints the list. Kinds:
    - `token`: `path` (e.g. `colors.primary`) in `file` at `line` goes from `before` to `after`.
    - `element`: on screen `screen` (`route`, source files in `sources`), the element `element` (role, label, box in the baseline screenshot `baselineImage`) should get the new text `label` and/or follow the free-form `note`.
    - `transition`: a flow edge was `added` or `removed`. Update the navigation code and the flow document (`flows.file`) together, following the repo's navigation rules.

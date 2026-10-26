@@ -1,5 +1,7 @@
+import { renameSync } from "node:fs";
 import { join, normalize } from "node:path";
 import { parseProject } from "../src/model/exportSpec";
+import { type AgentWaiting, SENT_FILE, type SentToAgent, WAITING_FILE } from "../src/model/types";
 import { type Capture, CaptureError, parseCaptureRequest } from "./capture";
 import type { Store } from "./db";
 
@@ -19,6 +21,24 @@ async function readProject(req: Request) {
   } catch (e) {
     throw new HttpError(400, e instanceof Error ? e.message : "잘못된 요청");
   }
+}
+
+async function agentWaiting(seamDir: string) {
+  const file = Bun.file(join(seamDir, WAITING_FILE));
+  if (!(await file.exists())) return false;
+  try {
+    process.kill(((await file.json()) as AgentWaiting).pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function readSendMessage(req: Request) {
+  const body = (await req.json().catch(() => null)) as { message?: unknown } | null;
+  const message = body?.message ?? "";
+  if (typeof message !== "string" || message.length > 10_000) throw new HttpError(400, "message는 10,000자 이하의 문자열이어야 합니다");
+  return message.trim();
 }
 
 class HttpError extends Error {
@@ -41,7 +61,19 @@ export function createApp({ store, capture, staticDir, repoDir }: AppOptions) {
     if (resource === "repo") {
       if (!seamDir) return fail(404, "레포 모드가 아닙니다");
       const file = Bun.file(join(seamDir, "project.json"));
-      if (!id && method === "GET") return json({ root: repoDir, hasProject: await file.exists() });
+      if (!id && method === "GET") return json({ root: repoDir, hasProject: await file.exists(), agentWaiting: await agentWaiting(seamDir) });
+      if (id === "send" && method === "POST") {
+        const message = await readSendMessage(req);
+        const sent = Bun.file(join(seamDir, SENT_FILE));
+        const previous: SentToAgent = (await sent.exists()) ? await sent.json() : { messages: [] };
+        const at = new Date().toISOString();
+        const next: SentToAgent = { messages: message ? [...previous.messages, { at, text: message }] : previous.messages };
+        // Write then rename so a polling `seam wait` never reads a half-written file.
+        const tmp = `${sent.name}.${process.pid}.tmp`;
+        await Bun.write(tmp, `${JSON.stringify(next, null, 2)}\n`);
+        renameSync(tmp, join(seamDir, SENT_FILE));
+        return json({ sentAt: at, agentWaiting: await agentWaiting(seamDir) });
+      }
       if (id === "project" && method === "GET") return (await file.exists()) ? new Response(file, { headers: { "content-type": "application/json" } }) : fail(404, "seam import를 먼저 실행하세요");
       if (id === "project" && method === "PUT") {
         const project = await readProject(req);

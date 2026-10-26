@@ -2,7 +2,7 @@
 import { cpSync, existsSync, mkdirSync, renameSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { DEFAULT_DEVICE, DEVICES, type DeviceId, deviceOf } from "../src/model/devices";
-import type { CapturedElement, Project } from "../src/model/types";
+import { type AgentWaiting, type CapturedElement, type Project, SENT_FILE, type SentToAgent, WAITING_FILE } from "../src/model/types";
 import { openBrowser } from "./capture";
 import { type Change, changeMarkdown, pendingChanges } from "./changes";
 import { expoRoutes, loadTokens, mermaidFlows } from "./parse";
@@ -31,6 +31,8 @@ const HELP = `seam — 디자인 명세 편집기 CLI (AI 에이전트용, 결�
                                기기: iphone = iPhone 18 Pro 402×874 (기본), galaxy = Galaxy S26 360×780
   seam open [--port 5190]      이 레포의 .seam/을 연 편집기 서버 실행
   seam changes                 기준 대비 변경 묶음을 .seam/changes/pending/에 쓰고 출력
+  seam wait [--timeout 초]     편집기의 'AI에게 보내기'를 기다렸다가 보낸 말과 변경 묶음을 출력
+                               (기본: 끝없이 기다림, 시간이 다 되면 timedOut: true)
   seam verify [--no-capture]   코드 반영 결과 확인 (토큰 값, 문구, 흐름 문서, 다시 캡처)
   seam done [--force]          확인된 변경을 새 기준으로 올리고 묶음을 보관
   seam skill install [--dir D] 대상 레포에 seam 스킬 설치 (.claude/skills, .agents/skills)
@@ -121,7 +123,7 @@ async function cmdInit(root: string, args: Args) {
   if (existsSync(configPath(root)) && !args.flags.force) throw new SeamError(".seam/seam.json이 이미 있습니다 (덮어쓰려면 --force)");
   const config = await detectConfig(root);
   await writeJSON(configPath(root), config);
-  await Bun.write(join(seamDir(root), ".gitignore"), "changes/pending/after/\n");
+  await Bun.write(join(seamDir(root), ".gitignore"), `changes/pending/after/\n${SENT_FILE}\n${WAITING_FILE}\n`);
   print({ created: ".seam/seam.json", config, next: "값을 확인·수정한 뒤 'seam import'" });
 }
 
@@ -171,19 +173,47 @@ async function cmdOpen(root: string, args: Args) {
   process.exitCode = await server.exited;
 }
 
-async function cmdChanges(root: string) {
+async function writePending(root: string) {
   const project = await readJSON<Project>(projectPath(root));
   const changes = pendingChanges(project);
   const dir = pendingDir(root);
   if (changes.length === 0) {
     rmSync(dir, { recursive: true, force: true });
-    print({ count: 0, changes: [] });
-    return;
+    return { count: 0, changes: [] };
   }
   await writeJSON(join(dir, "change.json"), { project: project.name, createdAt: new Date().toISOString(), changes });
   await Bun.write(join(dir, "README.md"), changeMarkdown(project, changes));
   rmSync(join(dir, "verify.json"), { force: true });
-  print({ count: changes.length, dir: ".seam/changes/pending", readme: ".seam/changes/pending/README.md", changes });
+  return { count: changes.length, dir: ".seam/changes/pending", readme: ".seam/changes/pending/README.md", changes };
+}
+
+async function cmdChanges(root: string) {
+  print(await writePending(root));
+}
+
+async function cmdWait(root: string, args: Args) {
+  const timeout = args.flags.timeout === undefined ? 0 : Number(args.flags.timeout);
+  if (!Number.isFinite(timeout) || timeout < 0) throw new SeamError("--timeout은 0 이상의 초여야 합니다 (0 = 끝없이)");
+  await readJSON<Project>(projectPath(root));
+  const sent = join(seamDir(root), SENT_FILE);
+  const waiting = join(seamDir(root), WAITING_FILE);
+  const deadline = timeout ? Date.now() + timeout * 1000 : Number.POSITIVE_INFINITY;
+  const mark: AgentWaiting = { pid: process.pid, since: new Date().toISOString() };
+  await writeJSON(waiting, mark);
+  try {
+    while (!existsSync(sent)) {
+      if (Date.now() >= deadline) {
+        print({ sent: false, timedOut: true, next: "아직 보낸 것이 없습니다. 다시 'seam wait'" });
+        return;
+      }
+      await Bun.sleep(500);
+    }
+  } finally {
+    rmSync(waiting, { force: true });
+  }
+  const { messages } = await readJSON<SentToAgent>(sent);
+  rmSync(sent);
+  print({ sent: true, messages, ...(await writePending(root)) });
 }
 
 interface VerifyResult {
@@ -304,6 +334,8 @@ async function main() {
       return cmdOpen(root, args);
     case "changes":
       return cmdChanges(root);
+    case "wait":
+      return cmdWait(root, args);
     case "verify":
       return cmdVerify(root, args);
     case "done":

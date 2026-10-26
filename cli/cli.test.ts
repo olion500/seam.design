@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, watch, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Project } from "../src/model/types";
+import { createApp } from "../server/app";
+import { Store } from "../server/db";
 import { withKeys } from "./capture";
 import { pendingChanges } from "./changes";
 import { expoRoutes, mermaidFlows, tokensFromModule } from "./parse";
@@ -150,6 +152,41 @@ describe("seam CLI round trip", () => {
     const after = await readProject(root);
     expect(after.source?.tokens["colors-primary"].value).toBe("#496238");
     expect(after.screens[0].requests).toEqual([]);
+  });
+
+  it("seam wait returns what the editor sent, before or while it waits, and times out otherwise", async () => {
+    const app = createApp({ store: new Store(":memory:"), capture: async () => "", repoDir: root });
+    const send = (message: string) => app(new Request("http://test/api/repo/send", { method: "POST", body: JSON.stringify({ message }) }));
+    const p = await readProject(root);
+    p.screens[0].requests = [{ id: "r1", note: "버튼을 더 크게" }];
+    await writeProject(root, p);
+
+    const idle = await seam(root, "wait", "--timeout", "0.2");
+    expect(idle.json).toMatchObject({ sent: false, timedOut: true });
+    expect(existsSync(join(root, ".seam/changes/waiting.json"))).toBe(false);
+
+    await send("먼저 보낸 말");
+    const early = await seam(root, "wait", "--timeout", "5");
+    expect(early.json).toMatchObject({ sent: true, count: 1, messages: [{ text: "먼저 보낸 말" }] });
+    expect(early.json.changes[0]).toMatchObject({ kind: "element", note: "버튼을 더 크게" });
+    expect(existsSync(join(root, ".seam/changes/sent.json"))).toBe(false);
+
+    const changesDir = join(root, ".seam/changes");
+    const listening = new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("seam wait did not start waiting")), 5000);
+      const w = watch(changesDir, (_, file) => {
+        if (file === "waiting.json" && existsSync(join(changesDir, file))) {
+          clearTimeout(timer);
+          w.close();
+          resolve();
+        }
+      });
+    });
+    const later = seam(root, "wait", "--timeout", "10");
+    await listening;
+    expect(await (await app(new Request("http://test/api/repo"))).json()).toMatchObject({ agentWaiting: true });
+    await send("");
+    expect((await later).json).toMatchObject({ sent: true, messages: [], count: 1 });
   });
 
   it("reports missing configured paths as a JSON error", async () => {

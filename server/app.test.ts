@@ -79,7 +79,7 @@ describe("repo mode", () => {
     writeFileSync(join(repo, "secret.txt"), "secret");
     handle = createApp({ store: new Store(":memory:"), capture: async () => "", repoDir: repo });
 
-    expect(await (await call("GET", "/api/repo")).json()).toEqual({ root: repo, hasProject: false });
+    expect(await (await call("GET", "/api/repo")).json()).toEqual({ root: repo, hasProject: false, agentWaiting: false });
     expect((await call("GET", "/api/repo/project")).status).toBe(404);
     const project = seedProject();
     expect((await call("PUT", "/api/repo/project", project)).status).toBe(200);
@@ -87,6 +87,27 @@ describe("repo mode", () => {
 
     expect(await (await call("GET", "/repo/screens/HOME.png")).text()).toBe("png");
     expect((await call("GET", "/repo/%2E%2E/secret.txt")).status).toBe(404);
+  });
+
+  it("collects sent messages for seam wait and reports whether an agent is waiting", async () => {
+    const repo = mkdtempSync(join(tmpdir(), "seam-repo-"));
+    handle = createApp({ store: new Store(":memory:"), capture: async () => "", repoDir: repo });
+    const sent = () => Bun.file(join(repo, ".seam/changes/sent.json")).json();
+
+    expect(await (await call("POST", "/api/repo/send", {})).json()).toMatchObject({ agentWaiting: false });
+    expect(await sent()).toEqual({ messages: [] });
+    await call("POST", "/api/repo/send", { message: "  버튼 먼저  " });
+    await call("POST", "/api/repo/send", { message: "그다음 문구" });
+    expect(((await sent()) as { messages: { text: string }[] }).messages.map((m) => m.text)).toEqual(["버튼 먼저", "그다음 문구"]);
+    expect((await call("POST", "/api/repo/send", { message: 1 })).status).toBe(400);
+
+    const waiting = join(repo, ".seam/changes/waiting.json");
+    writeFileSync(waiting, JSON.stringify({ pid: process.pid, since: "now" }));
+    expect(await (await call("GET", "/api/repo")).json()).toMatchObject({ agentWaiting: true });
+    const dead = Bun.spawn(["true"]);
+    await dead.exited;
+    writeFileSync(waiting, JSON.stringify({ pid: dead.pid, since: "now" }));
+    expect(await (await call("GET", "/api/repo")).json()).toMatchObject({ agentWaiting: false });
   });
 
   it("is off without a repo", async () => {

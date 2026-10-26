@@ -154,6 +154,21 @@ export interface ProjectSource {
   transitions: string[];
 }
 
+/** Hand-off between the editor (server) and `seam wait` (CLI), relative to `.seam/`. */
+export const SENT_FILE = "changes/sent.json";
+export const WAITING_FILE = "changes/waiting.json";
+
+/** `.seam/changes/sent.json`: the user pressed send; messages pile up until an agent picks them up. */
+export interface SentToAgent {
+  messages: { at: string; text: string }[];
+}
+
+/** `.seam/changes/waiting.json`: a `seam wait` process is listening. */
+export interface AgentWaiting {
+  pid: number;
+  since: string;
+}
+
 export type View = "flow" | "system" | "rules" | "motion";
 
 export type Selection =
