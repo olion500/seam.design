@@ -1,6 +1,6 @@
 import { MousePointerClick } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Eyebrow, Field, Prop, Section, Toggle, selectClass } from "@/components/bits";
+import { Eyebrow, Field, Prop, Section, Toggle, quietInput, selectClass } from "@/components/bits";
 import { ScreenView } from "@/components/ScreenView";
 import { TransitionPlayer } from "@/components/TransitionPlayer";
 import { displaySpec } from "@/model/diff";
@@ -89,13 +89,13 @@ function TransitionInspector({ transition: t }: { transition: Transition }) {
       )}
       <Section title="조건">
         <Field label="이름">
-          <Input className="h-9" value={t.label} onChange={(e) => patch({ label: e.target.value })} />
+          <Input className={cn("h-9", quietInput)} value={t.label} onChange={(e) => patch({ label: e.target.value })} />
         </Field>
         <Field label="트리거">
-          <Input className="h-9" value={t.trigger} onChange={(e) => patch({ trigger: e.target.value })} />
+          <Input className={cn("h-9", quietInput)} value={t.trigger} onChange={(e) => patch({ trigger: e.target.value })} />
         </Field>
         <Field label="조건">
-          <Input className="h-9" placeholder="항상" value={t.condition} onChange={(e) => patch({ condition: e.target.value })} />
+          <Input className={cn("h-9", quietInput)} placeholder="항상" value={t.condition} onChange={(e) => patch({ condition: e.target.value })} />
         </Field>
         <Field label="출발 요소">
           <select className={selectClass} value={t.sourceElementId ?? ""} onChange={(e) => patch({ sourceElementId: e.target.value || undefined })}>
@@ -245,7 +245,7 @@ function MotionInspector({ preset }: { preset: MotionPreset }) {
       <Header eyebrow="모션 프리셋" title={preset.name} />
       <Section title="속성">
         <Field label="이름">
-          <Input className="h-9" value={preset.name} onChange={(e) => patch({ name: e.target.value })} />
+          <Input className={cn("h-9", quietInput)} value={preset.name} onChange={(e) => patch({ name: e.target.value })} />
         </Field>
         <Field label="종류">
           <select className={selectClass} value={preset.kind} onChange={(e) => patch({ kind: e.target.value as MotionKind })}>
@@ -257,7 +257,7 @@ function MotionInspector({ preset }: { preset: MotionPreset }) {
           </select>
         </Field>
         <Field label="길이 (ms)">
-          <Input className="h-9" type="number" min={0} max={2000} step={10} value={preset.durationMs} onChange={(e) => patch({ durationMs: Number(e.target.value) })} />
+          <Input className={cn("h-9", quietInput)} type="number" min={0} max={2000} step={10} value={preset.durationMs} onChange={(e) => patch({ durationMs: Number(e.target.value) })} />
         </Field>
         <Field label="이징">
           <select className={selectClass} value={preset.easing} onChange={(e) => patch({ easing: e.target.value as EasingName })}>
@@ -295,7 +295,7 @@ function MotionInspector({ preset }: { preset: MotionPreset }) {
         {preset.reduced?.kind === "fade" && (
           <Field label="길이 (ms)">
             <Input
-              className="h-9"
+              className={cn("h-9", quietInput)}
               type="number"
               min={0}
               max={1000}
@@ -333,7 +333,7 @@ function RuleInspector({ rule }: { rule: Rule }) {
         {rule.check === "touch-target" && (
           <Field label="최소 크기">
             <Input
-              className="h-9"
+              className={cn("h-9", quietInput)}
               type="number"
               min={24}
               max={96}

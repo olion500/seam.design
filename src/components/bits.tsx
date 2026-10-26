@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
@@ -46,6 +47,28 @@ export function Eyebrow({ children }: { children: ReactNode }) {
 }
 
 const propLabel = "text-xs font-medium text-muted-foreground";
+
+/** Input that reads as plain text until hovered or focused, so the panel looks read-only but edits in place. */
+export const quietInput =
+  "-mx-2 w-[calc(100%+1rem)] border-transparent bg-transparent px-2 shadow-none hover:border-input focus-visible:border-ring focus-visible:bg-white";
+
+/** "+" for a section header: opens that section's add form. */
+export function AddButton({ label, open, onClick }: { label: string; open: boolean; onClick: () => void }) {
+  return (
+    <Tip label={label}>
+      <Button
+        variant={open ? "secondary" : "ghost"}
+        size="icon"
+        aria-label={label}
+        aria-expanded={open}
+        className="-my-1 size-8"
+        onClick={onClick}
+      >
+        <Plus className={open ? "rotate-45 transition-transform" : "transition-transform"} />
+      </Button>
+    </Tip>
+  );
+}
 
 /** An editable property: small name on top, the control below at full width. */
 export function Field({ label, children }: { label: string; children: ReactNode }) {

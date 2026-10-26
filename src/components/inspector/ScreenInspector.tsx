@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Check, ExternalLink, Globe, ImagePlus, MousePointerClick, Trash2, TriangleAlert, X } from "lucide-react";
 import { CaptureDialog } from "@/components/CaptureDialog";
 import { ScreenView } from "@/components/ScreenView";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Eyebrow, Field, Prop, Section, StatusBadge, Tip, Toggle, selectClass } from "@/components/bits";
+import { AddButton, Eyebrow, Field, Prop, Section, StatusBadge, Tip, Toggle, quietInput, selectClass } from "@/components/bits";
 import { deviceOf } from "@/model/devices";
 import { screenChanges } from "@/model/diff";
 import { tokensInSpec } from "@/model/tokens";
@@ -87,7 +87,7 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
         <Field label="상태">
           <Input
             aria-label="화면 상태"
-            className="h-9"
+            className={cn("h-9", quietInput)}
             defaultValue={screen.states.join(" · ")}
             onBlur={(e) => ed.updateScreen(screen.id, { states: e.target.value.split(/[·,]/).map((x) => x.trim()).filter(Boolean) })}
           />
@@ -190,75 +190,116 @@ function RequestEditor({ screen }: { screen: Screen }) {
   const tokens = useEditor((s) => s.project.tokens);
   const ed = useEditor.getState();
   const elements = screen.baseline?.elements ?? [];
+  const [composing, setComposing] = useState(false);
+  const noteRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (composing) noteRef.current?.focus();
+  }, [composing]);
   const [elementKey, setElementKey] = useState("");
   const [label, setLabel] = useState("");
   const [note, setNote] = useState("");
   const requests = screen.requests ?? [];
   const name = (key?: string) => elements.find((e) => e.key === key)?.label ?? "화면 전체";
   const picked = elements.find((e) => e.key === elementKey);
+  const canAdd = !!label.trim() || !!note.trim();
+
+  const close = () => {
+    setComposing(false);
+    setElementKey("");
+    setLabel("");
+    setNote("");
+  };
+  const pick = (key: string) => {
+    setElementKey(key);
+    if (key) setComposing(true);
+  };
+  const submit = () => {
+    if (!canAdd) return;
+    ed.addRequest(screen.id, { elementKey: elementKey || undefined, label: label.trim() || undefined, note: note.trim() });
+    close();
+  };
 
   return (
-    <Section title={`변경 요청 ${requests.length}`}>
+    <Section
+      title={`변경 요청 ${requests.length}`}
+      action={<AddButton label={composing ? "닫기" : "요청 추가 · 화면에서 요소를 눌러도 됩니다"} open={composing} onClick={() => (composing ? close() : setComposing(true))} />}
+    >
       {screen.baseline?.image ? (
-        <PickShot screen={screen} picked={elementKey} onPick={setElementKey} />
+        <PickShot screen={screen} picked={elementKey} onPick={pick} />
       ) : (
         <div className="overflow-hidden rounded-lg border">
           <ScreenView screen={screen} mode="baseline" width={200} tokens={tokens} focusId={elementKey || null} />
         </div>
       )}
-      <div className="flex min-h-9 items-center gap-2 rounded-lg bg-muted px-3 py-1.5 text-sm">
-        {picked ? (
-          <>
-            <span className="shrink-0 text-muted-foreground">{ROLE_NAMES[picked.role] ?? picked.role}</span>
-            <b className="min-w-0 flex-1 truncate">{picked.label}</b>
-            <button type="button" aria-label="요소 선택 해제" className="text-muted-foreground hover:text-foreground" onClick={() => setElementKey("")}>
-              <X className="size-4" />
-            </button>
-          </>
-        ) : (
-          <Tip label="위 화면에서 요소를 누르면 그 요소만 고릅니다">
-            <span tabIndex={-1} className="flex items-center gap-1.5 text-muted-foreground">
-              <MousePointerClick className="size-4" /> 화면 전체
-            </span>
-          </Tip>
-        )}
-      </div>
-      <form
-        className="flex flex-col gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!label.trim() && !note.trim()) return;
-          ed.addRequest(screen.id, { elementKey: elementKey || undefined, label: label.trim() || undefined, note: note.trim() });
-          setLabel("");
-          setNote("");
-        }}
-      >
-        {picked && (
-          <Input aria-label="바꿀 문구" className="h-9" placeholder={`바꿀 문구 (지금: ${picked.label})`} value={label} onChange={(e) => setLabel(e.target.value)} />
-        )}
-        <textarea
-          aria-label="변경 메모"
-          rows={2}
-          placeholder={picked ? "메모 · 예: 더 크게, 색을 연하게" : "메모 · 예: 간격을 넓게"}
-          className="w-full resize-y rounded-lg border border-input px-3 py-2 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-        />
-        <Button type="submit" size="sm" className="self-end" disabled={!label.trim() && !note.trim()}>
-          요청 추가
-        </Button>
-      </form>
+      {composing && (
+        <form
+          className="flex flex-col gap-2 rounded-lg border p-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            submit();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") close();
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit();
+          }}
+        >
+          <div className="flex items-center gap-2 text-sm">
+            {picked ? (
+              <>
+                <span className="shrink-0 text-muted-foreground">{ROLE_NAMES[picked.role] ?? picked.role}</span>
+                <b className="min-w-0 flex-1 truncate">{picked.label}</b>
+                <Tip label="화면 전체로">
+                  <button type="button" aria-label="요소 선택 해제" className="text-muted-foreground hover:text-foreground" onClick={() => setElementKey("")}>
+                    <X className="size-4" />
+                  </button>
+                </Tip>
+              </>
+            ) : (
+              <Tip label="위 화면에서 요소를 누르면 그 요소만 고릅니다">
+                <span tabIndex={-1} className="flex items-center gap-1.5 text-muted-foreground">
+                  <MousePointerClick className="size-4" /> 화면 전체
+                </span>
+              </Tip>
+            )}
+          </div>
+          {picked && (
+            <Input aria-label="바꿀 문구" className="h-9" placeholder={`바꿀 문구 (지금: ${picked.label})`} value={label} onChange={(e) => setLabel(e.target.value)} />
+          )}
+          <textarea
+            aria-label="변경 메모"
+            ref={noteRef}
+            rows={2}
+            placeholder={picked ? "메모 · 예: 더 크게, 색을 연하게" : "메모 · 예: 간격을 넓게"}
+            className="w-full resize-y rounded-lg border border-input px-3 py-2 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" size="sm" onClick={close}>
+              취소
+            </Button>
+            <Button type="submit" size="sm" disabled={!canAdd}>
+              추가
+            </Button>
+          </div>
+        </form>
+      )}
       {requests.length > 0 && (
         <ul className="flex flex-col gap-1 text-sm">
           {requests.map((r) => (
-            <li key={r.id} className="flex items-start gap-2 rounded-lg bg-muted px-2.5 py-2">
+            <li key={r.id} className="group flex items-start gap-2 rounded-lg bg-muted px-2.5 py-2">
               <span aria-hidden className="mt-1.5 size-2 shrink-0 rounded-full bg-change" />
               <span className="flex-1">
                 <b>{name(r.elementKey)}</b>
                 {r.label && ` → “${r.label}”`}
                 {r.note && <span className="block text-muted-foreground">{r.note}</span>}
               </span>
-              <button type="button" aria-label="요청 삭제" className="text-muted-foreground hover:text-foreground" onClick={() => ed.removeRequest(screen.id, r.id)}>
+              <button
+                type="button"
+                aria-label="요청 삭제"
+                className="text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground focus:opacity-100"
+                onClick={() => ed.removeRequest(screen.id, r.id)}
+              >
                 <X className="size-4" />
               </button>
             </li>
@@ -317,7 +358,7 @@ function AppUrl({ screen }: { screen: Screen }) {
       <Input
         aria-label="앱 주소"
         placeholder="http://localhost:5173/checkout"
-        className="h-9 min-w-0 font-mono text-xs"
+        className={cn("h-9 min-w-0 font-mono text-xs", quietInput)}
         value={url}
         onChange={(e) => setUrl(e.target.value)}
         onBlur={apply}
@@ -378,7 +419,7 @@ function VariantEditor({ screen, spec }: { screen: Screen; spec: ScreenSpec }) {
       </Field>
       {el && el.label !== undefined && (
         <Field label="문구">
-          <Input className="h-9" value={el.label} onChange={(e) => patch({ label: e.target.value })} />
+          <Input className={cn("h-9", quietInput)} value={el.label} onChange={(e) => patch({ label: e.target.value })} />
         </Field>
       )}
       {el?.kind === "button" && (
@@ -393,7 +434,7 @@ function VariantEditor({ screen, spec }: { screen: Screen; spec: ScreenSpec }) {
             </select>
           </Field>
           <Field label="높이">
-            <Input className="h-9" type="number" min={24} max={96} value={el.height ?? 56} onChange={(e) => patch({ height: Number(e.target.value) })} />
+            <Input className={cn("h-9", quietInput)} type="number" min={24} max={96} value={el.height ?? 56} onChange={(e) => patch({ height: Number(e.target.value) })} />
           </Field>
         </>
       )}
@@ -409,27 +450,36 @@ function VariantEditor({ screen, spec }: { screen: Screen; spec: ScreenSpec }) {
 
 function SourcesEditor({ screen, tokens }: { screen: Screen; tokens: string[] }) {
   const ed = useEditor.getState();
+  const [adding, setAdding] = useState(false);
+  const pathRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (adding) pathRef.current?.focus();
+  }, [adding]);
   const [path, setPath] = useState("");
   const [note, setNote] = useState("");
-  const add = () => {
-    if (!path.trim()) return;
-    ed.setSources(screen.id, [...screen.sources, { path: path.trim(), note: note.trim() || "화면 일부" }]);
+  const close = () => {
+    setAdding(false);
     setPath("");
     setNote("");
   };
+  const add = () => {
+    if (!path.trim()) return;
+    ed.setSources(screen.id, [...screen.sources, { path: path.trim(), note: note.trim() || "화면 일부" }]);
+    close();
+  };
   return (
-    <Section title="소스 매핑">
+    <Section title="소스 매핑" action={<AddButton label={adding ? "닫기" : "소스 파일 추가"} open={adding} onClick={() => (adding ? close() : setAdding(true))} />}>
       <ul className="flex flex-col gap-2 text-[13px]">
         {screen.sources.map((m, i) => (
           <li key={`${m.path}|${m.note}`} className="group flex items-start gap-2 rounded-lg bg-muted px-2.5 py-2">
-            <span className="flex flex-1 flex-col gap-0.5">
-              <code className="font-mono">{m.path}</code>
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <code className="font-mono break-all">{m.path}</code>
               <span className="text-muted-foreground">{m.note}</span>
             </span>
             <button
               type="button"
               aria-label={`${m.path} 매핑 삭제`}
-              className="text-muted-foreground opacity-0 group-hover:opacity-100 focus:opacity-100"
+              className="text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground focus:opacity-100"
               onClick={() => ed.setSources(screen.id, screen.sources.filter((_, j) => j !== i))}
             >
               <X className="size-4" />
@@ -443,19 +493,34 @@ function SourcesEditor({ screen, tokens }: { screen: Screen; tokens: string[] })
           </li>
         )}
       </ul>
-      <form
-        className="flex gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          add();
-        }}
-      >
-        <Input aria-label="소스 경로" placeholder="src/screens/…" className="h-9 font-mono text-[13px]" value={path} onChange={(e) => setPath(e.target.value)} />
-        <Input aria-label="매핑 설명" placeholder="설명" className="h-9 w-24" value={note} onChange={(e) => setNote(e.target.value)} />
-        <Button type="submit" size="sm" variant="secondary" className="h-9">
-          추가
-        </Button>
-      </form>
+      {adding && (
+        <form
+          className="flex flex-col gap-2 rounded-lg border p-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            add();
+          }}
+          onKeyDown={(e) => e.key === "Escape" && close()}
+        >
+          <Input
+            aria-label="소스 경로"
+            ref={pathRef}
+            placeholder="src/screens/Checkout.tsx"
+            className="h-9 font-mono text-[13px]"
+            value={path}
+            onChange={(e) => setPath(e.target.value)}
+          />
+          <Input aria-label="매핑 설명" placeholder="설명 (선택) · 예: 결제 버튼" className="h-9" value={note} onChange={(e) => setNote(e.target.value)} />
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" size="sm" onClick={close}>
+              취소
+            </Button>
+            <Button type="submit" size="sm" disabled={!path.trim()}>
+              추가
+            </Button>
+          </div>
+        </form>
+      )}
     </Section>
   );
 }
