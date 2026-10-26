@@ -114,7 +114,31 @@ export function tokensFromModule(mod: Record<string, unknown>, exports: string[]
   return out;
 }
 
+let stubbed = false;
+
+function stubReactNative() {
+  if (stubbed) return;
+  stubbed = true;
+  const g = globalThis as { __DEV__?: boolean };
+  g.__DEV__ ??= false;
+  Bun.plugin({
+    name: "seam-react-native-stub",
+    setup(build) {
+      build.module("react-native", () => ({
+        loader: "object",
+        exports: {
+          Platform: { OS: "web", select: (o: Record<string, unknown>) => o.web ?? o.default },
+          StyleSheet: { create: <T>(s: T) => s, hairlineWidth: 1 },
+          Dimensions: { get: () => ({ width: 402, height: 874, scale: 3, fontScale: 1 }) },
+          PixelRatio: { get: () => 3 },
+        },
+      }));
+    },
+  });
+}
+
 export async function loadTokens(file: string, exports: string[]): Promise<ParsedToken[]> {
+  stubReactNative();
   const mod = (await import(`${file}?v=${Date.now()}`)) as Record<string, unknown>;
   return tokensFromModule(mod, exports, await Bun.file(file).text());
 }

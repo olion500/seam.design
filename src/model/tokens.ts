@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import type { ScreenSpec, Token } from "./types";
+import type { Project, ScreenSpec, Token } from "./types";
 
 export const isHex = (v: string) => /^#[0-9a-f]{3,8}$/i.test(v);
 
@@ -46,4 +46,20 @@ export function tokensInSpec(spec: ScreenSpec): string[] {
     if (el.kind === "field" || el.kind === "listItem") used.add("radius-xs");
   }
   return [...used];
+}
+
+export function liveOverrides(project: Pick<Project, "tokens" | "source">): Record<string, string> {
+  const out: Record<string, string> = {};
+  const source = project.source?.tokens ?? {};
+  for (const t of project.tokens) {
+    const src = source[t.name];
+    if (src && src.value !== t.value) out[src.path] = t.value;
+  }
+  return out;
+}
+
+export function liveSrc(url: string, overrides: Record<string, string>): string {
+  const u = new URL(url, "http://seam.invalid");
+  u.searchParams.set("seam-tokens", JSON.stringify(overrides));
+  return u.origin === "http://seam.invalid" ? `${u.pathname}${u.search}` : u.href;
 }

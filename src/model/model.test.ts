@@ -3,6 +3,7 @@ import { ease, effectiveMotion, frameStyles } from "@/lib/transition";
 import { diffSpecs, screenChanges } from "./diff";
 import { parseProject, toJSON, toMarkdown } from "./exportSpec";
 import { collectWarnings, runRules } from "./rules";
+import { liveOverrides, liveSrc } from "./tokens";
 import { seedProject } from "./seed";
 
 const byCheck = (p = seedProject()) => Object.fromEntries(runRules(p).map((r) => [r.rule.check, r]));
@@ -69,6 +70,29 @@ describe("export", () => {
     const md = toMarkdown(p);
     for (const s of p.screens) expect(md).toContain(`### ${s.name}`);
     expect(md.match(/^\| (장바구니|배송 정보|결제 수단|쿠폰 적용|결제 실패) \|/gm)).toHaveLength(p.transitions.length);
+  });
+});
+
+describe("live token overrides", () => {
+  it("passes only edited tokens, keyed by their source path", () => {
+    const tokens = [
+      { name: "colors-primary", kind: "color" as const, value: "#3F5A2E" },
+      { name: "colors-ink", kind: "color" as const, value: "#343C2E" },
+    ];
+    const source = {
+      transitions: [],
+      tokens: {
+        "colors-primary": { path: "colors.primary", value: "#657852", file: "theme.ts", line: 3 },
+        "colors-ink": { path: "colors.ink", value: "#343C2E", file: "theme.ts", line: 3 },
+      },
+    };
+    const overrides = liveOverrides({ tokens, source });
+    expect(overrides).toEqual({ "colors.primary": "#3F5A2E" });
+    const url = new URL(liveSrc("http://localhost:8081/prepare?x=1", overrides));
+    expect(url.pathname).toBe("/prepare");
+    expect(url.searchParams.get("x")).toBe("1");
+    expect(JSON.parse(url.searchParams.get("seam-tokens") ?? "")).toEqual(overrides);
+    expect(liveSrc("/demo/checkout.html", {})).toBe("/demo/checkout.html?seam-tokens=%7B%7D");
   });
 });
 

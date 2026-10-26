@@ -47,6 +47,15 @@ Every command prints JSON. A JSON object with `error` means the command failed; 
    - `review`: needs your judgment. Compare the baseline and after images for that screen and decide whether the note is satisfied; if not, keep working.
 5. When everything passes and every `review` item truly matches, `seam done`. It makes the after-screenshots the new baseline, clears the applied requests, and archives the change set under `.seam/changes/<timestamp>/`. Commit `.seam/` together with the code change if the repo tracks it.
 
+## Render modes and live token preview
+
+`app.render` in `.seam/seam.json` (also switchable in the editor) is `live` or `capture`:
+
+- `live`: the editor shows each screen as the running app (`app.url` + route) in an iframe, and falls back to the screenshot when the app is not running. Baselines are still screenshots from `seam capture`; the live view is the current code.
+- `capture`: the editor shows screenshots only.
+
+In live mode the editor appends `?seam-tokens=<JSON>` to every app URL: an object of token source paths to edited values, e.g. `{"colors.primary":"#3F5A2E","typography.title":"40 / 400"}` (`{}` when nothing is edited). Apps whose tokens are CSS variables can use `seam-bridge.js` instead. For apps whose tokens are JS objects, add a development-only hook to the token module: read the parameter (keep it in sessionStorage so in-app navigation keeps it), and apply each path to the exported objects before other modules use them; for `fontSize / fontWeight` values set both fields. Never ship it in production builds, and follow the repo's rules for that code change.
+
 ## Other commands
 
 - If the editor shows that some baseline screenshots were taken at another device size (the user switched devices), run `seam capture` again with the app running.

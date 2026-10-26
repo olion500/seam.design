@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { CompareDrawer } from "@/components/CompareDrawer";
 import { DEFAULT_DEVICE, DEVICES, type DeviceId, deviceSize } from "@/model/devices";
 import { screenChanges } from "@/model/diff";
+import { checkLiveApp, liveStatus, useLiveApp } from "@/lib/liveApp";
+import { cn } from "@/lib/utils";
 import { useSync } from "@/store/persist";
 import { useRuleState } from "@/store/derived";
 import { useEditor } from "@/store/store";
@@ -135,7 +137,8 @@ function Canvas() {
       <div className="pointer-events-none absolute top-5 left-6 z-10 text-sm font-bold tracking-wider text-muted-foreground">
         {project.name} · 화면 {project.screens.length}
       </div>
-      <div className="absolute top-4 right-4 z-10 flex flex-wrap justify-end gap-2">
+      <div className="absolute top-4 right-4 z-10 flex max-w-[calc(100%-220px)] flex-wrap justify-end gap-2">
+        <RenderPicker />
         <DevicePicker />
         <Button variant="secondary" className="bg-white shadow-soft" onClick={() => useEditor.getState().addScreen()}>
           <SquarePlus /> 화면 추가
@@ -147,6 +150,48 @@ function Canvas() {
       <Hints comparing={compareIds.length} />
       <ZoomControls />
     </ReactFlow>
+  );
+}
+
+function RenderPicker() {
+  const render = useEditor((s) => s.project.render ?? "capture");
+  const liveUrl = useEditor((s) => s.project.screens.find((x) => x.live)?.live?.url);
+  const status = useLiveApp((s) => liveStatus(s, liveUrl));
+  useEffect(() => {
+    if (render === "live" && liveUrl && !status) void checkLiveApp(liveUrl);
+  }, [render, liveUrl, status]);
+  if (!liveUrl) return null;
+  return (
+    <div className="flex items-center gap-2">
+      {render === "live" && status === "down" && (
+        <button
+          type="button"
+          className="rounded-full bg-warn/30 px-3 py-1.5 text-[13px]"
+          title={`${new URL(liveUrl).origin}에 연결할 수 없어 스크린샷을 보여 줍니다. 앱을 실행한 뒤 누르세요.`}
+          onClick={() => void checkLiveApp(liveUrl)}
+        >
+          앱 꺼짐 · 스크린샷 표시 · 다시 확인
+        </button>
+      )}
+      <fieldset aria-label="렌더 방식" className="flex gap-1 rounded-lg bg-white p-1 shadow-soft">
+        {(
+          [
+            ["live", "라이브"],
+            ["capture", "스크린샷"],
+          ] as const
+        ).map(([mode, label]) => (
+          <button
+            key={mode}
+            type="button"
+            aria-pressed={render === mode}
+            onClick={() => useEditor.getState().setRender(mode)}
+            className={cn("h-8 rounded-md px-3 text-sm text-muted-foreground", render === mode && "bg-muted font-bold text-foreground")}
+          >
+            {label}
+          </button>
+        ))}
+      </fieldset>
+    </div>
   );
 }
 

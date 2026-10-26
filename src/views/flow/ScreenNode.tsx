@@ -4,6 +4,7 @@ import { LiveFrame } from "@/components/LiveFrame";
 import { ScreenView } from "@/components/ScreenView";
 import { StatusBadge, WarnIcon } from "@/components/bits";
 import { screenChanges } from "@/model/diff";
+import { liveStatus, useLiveApp } from "@/lib/liveApp";
 import { useEditor } from "@/store/store";
 import { cn } from "@/lib/utils";
 import { keepPreview, leaveNode, usePreview } from "./preview";
@@ -37,7 +38,10 @@ function ScreenNodeImpl({ data, selected }: NodeProps<ScreenNodeType>) {
   const tokens = useEditor((s) => s.project.tokens);
   const focusChange = useEditor((s) => s.focusChange);
   const hover = usePreview((s) => s.id === data.screenId);
-  const [previewMode, setPreviewMode] = useState<"baseline" | "variant" | "live">("baseline");
+  const liveMode = useEditor((s) => s.project.render === "live");
+  const appUp = useLiveApp((s) => liveStatus(s, screen?.live?.url) === "up");
+  const showLive = liveMode && appUp && !!screen?.live;
+  const [previewMode, setPreviewMode] = useState<"baseline" | "variant" | "live">(showLive ? "live" : "baseline");
 
   if (!screen) return null;
   const changes = screenChanges(screen);
@@ -58,7 +62,12 @@ function ScreenNodeImpl({ data, selected }: NodeProps<ScreenNodeType>) {
       {SIDE_HANDLES.map((h) => (
         <Handle key={h.id} type={h.type} id={h.id} position={h.position} isConnectable={h.type === "source"} className="side-handle" style={h.style} />
       ))}
-      <div className="overflow-hidden rounded bg-muted">
+      <div className="relative overflow-hidden rounded bg-muted">
+        {showLive && screen.live && (
+          <div className="absolute inset-0 z-[1]">
+            <LiveFrame screen={screen} url={screen.live.url} width={THUMB} compact interactive={false} />
+          </div>
+        )}
         <ScreenView
           screen={screen}
           mode="variant"

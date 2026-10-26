@@ -2,12 +2,12 @@ import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { DEFAULT_DEVICE, type DeviceId, deviceSize } from "../src/model/devices";
 import { seedProject } from "../src/model/seed";
-import type { Project, Screen, Transition } from "../src/model/types";
+import type { Project, RenderMode, Screen, Transition } from "../src/model/types";
 import type { FlowEdge, FlowNode, ParsedToken, RouteFile } from "./parse";
 
 export interface SeamConfig {
   name: string;
-  app: { command: string; url: string; device?: DeviceId };
+  app: { command: string; url: string; device?: DeviceId; render?: RenderMode };
   routes: { type: "expo-router"; dir: string };
   tokens?: { file: string; exports: string[] };
   flows?: { file: string };
@@ -111,6 +111,7 @@ export function buildProject({ config, routes, nodes, edges, tokens, tokenFile, 
     rules: previous?.rules ?? seed.rules.filter((r) => r.check === "no-dead-end" || r.check === "reduced-motion"),
     assets: [],
     device,
+    render: previous?.render ?? config.app.render ?? "live",
     source: {
       tokens: Object.fromEntries(tokens.map((t) => [t.name, { path: t.path, value: t.value, file: tokenFile ?? "", line: t.line }])),
       transitions: imported.map(transitionKey),

@@ -27,12 +27,13 @@ flowchart LR
 \`\`\`
 `;
 
-const THEME = `import type { TextStyle } from 'react-native';
+const THEME = `import { Platform, type TextStyle } from 'react-native';
 export const colors = { background: '#F8F6EE', primary: '#657852' };
 export const fonts = { body: 'Gaegu' };
 export const typography = {
   title: { fontFamily: fonts.body, fontSize: 38, fontWeight: '400' },
 } satisfies Record<string, TextStyle>;
+if (__DEV__ && Platform.OS === 'web') colors.primary = '#000000';
 `;
 
 function fixture() {
@@ -108,10 +109,12 @@ describe("seam CLI round trip", () => {
     const config = await Bun.file(join(root, ".seam/seam.json")).json();
     expect(config.app.command).toBe("pnpm mobile:web");
     expect(config.app.device).toBe("iphone");
+    expect(config.app.render).toBe("live");
     expect(config.tokens).toEqual({ file: "mobile/src/theme.ts", exports: ["colors", "fonts", "typography"] });
     const p = await readProject(root);
     expect(p.screens.map((s) => s.id)).toEqual(["HOME", "PREP1"]);
     expect(p.device).toBe("iphone");
+    expect(p.render).toBe("live");
     expect(p.screens[0].size).toEqual({ w: 402, h: 874 });
     expect(p.transitions.map((t) => `${t.from}>${t.to}`)).toEqual(["HOME>PREP1", "PREP1>HOME"]);
     expect(pendingChanges(p)).toEqual([]);

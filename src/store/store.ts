@@ -4,7 +4,7 @@ import { immer } from "zustand/middleware/immer";
 import { temporal } from "zundo";
 import { type DeviceId, deviceSize } from "@/model/devices";
 import { defaultSpec, emptyProject, seedProject } from "@/model/seed";
-import type { ChangeRequest, MotionPreset, Project, Rule, Screen, ScreenElement, Selection, SourceMapping, Transition, View } from "@/model/types";
+import type { ChangeRequest, MotionPreset, Project, RenderMode, Rule, Screen, ScreenElement, Selection, SourceMapping, Transition, View } from "@/model/types";
 
 const newId = () => crypto.randomUUID().slice(0, 8);
 const today = () => new Date().toLocaleDateString("ko-KR", { month: "long", day: "numeric" });
@@ -29,6 +29,7 @@ export interface EditorState {
   markSaved: (project: Project) => void;
   renameProject: (name: string) => void;
   setDevice: (device: DeviceId) => void;
+  setRender: (render: RenderMode) => void;
 
   addScreen: (input?: { name?: string; image?: string; url?: string; position?: { x: number; y: number } }) => string;
   updateScreen: (id: string, patch: Partial<Pick<Screen, "name" | "terminal" | "states" | "position">>) => void;
@@ -87,6 +88,11 @@ export const useEditor = create<EditorState>()(
         set((s) => {
           s.project.device = device;
           for (const screen of s.project.screens) if (!screen.baseline?.image) screen.size = deviceSize(device);
+        }),
+
+      setRender: (render) =>
+        set((s) => {
+          s.project.render = render;
         }),
 
       addScreen: (input = {}) => {

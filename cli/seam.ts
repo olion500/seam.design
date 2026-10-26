@@ -65,7 +65,7 @@ async function detectConfig(root: string): Promise<SeamConfig> {
   const flowFile = ["docs/user-flows.md"].find((f) => existsSync(join(root, f)));
   return {
     name: pkg.name ?? root.split("/").pop() ?? "app",
-    app: { command: pm === "npm" ? `npm run ${webScript}` : `${pm} ${webScript === "dev" && pm === "bun" ? "run dev" : webScript}`, url: "http://localhost:8081", device: DEFAULT_DEVICE },
+    app: { command: pm === "npm" ? `npm run ${webScript}` : `${pm} ${webScript === "dev" && pm === "bun" ? "run dev" : webScript}`, url: "http://localhost:8081", device: DEFAULT_DEVICE, render: "live" },
     routes: { type: "expo-router", dir: routesDir },
     ...(tokenFile && { tokens: { file: tokenFile, exports: exportsFound } }),
     ...(flowFile && { flows: { file: flowFile } }),
