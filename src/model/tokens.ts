@@ -48,12 +48,18 @@ export function tokensInSpec(spec: ScreenSpec): string[] {
   return [...used];
 }
 
+export function validTokenValue(kind: Token["kind"], value: string): boolean {
+  if (kind === "color") return isHex(value) && [4, 7, 9].includes(value.length);
+  if (kind === "type") return /^\d+(\.\d+)?\s*\/\s*\d+$/.test(value.trim());
+  return value.trim() !== "";
+}
+
 export function liveOverrides(project: Pick<Project, "tokens" | "source">): Record<string, string> {
   const out: Record<string, string> = {};
   const source = project.source?.tokens ?? {};
   for (const t of project.tokens) {
     const src = source[t.name];
-    if (src && src.value !== t.value) out[src.path] = t.value;
+    if (src && src.value !== t.value && validTokenValue(t.kind, t.value)) out[src.path] = t.value;
   }
   return out;
 }

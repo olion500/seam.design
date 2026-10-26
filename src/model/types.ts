@@ -79,6 +79,7 @@ export interface Screen {
   live?: { url: string };
   route?: string;
   requests?: ChangeRequest[];
+  exitsOutside?: string[];
 }
 
 export interface Transition {

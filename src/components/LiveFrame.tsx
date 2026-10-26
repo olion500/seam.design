@@ -1,4 +1,4 @@
-import { useCallback, useDeferredValue, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { deviceSize } from "@/model/devices";
 import { bridgeVars, liveOverrides, liveSrc } from "@/model/tokens";
 import type { Screen } from "@/model/types";
@@ -20,7 +20,13 @@ export function LiveFrame({ screen, url, width, compact = false, interactive = t
   const frame = useRef<HTMLIFrameElement>(null);
   const [connected, setConnected] = useState(false);
   const scale = width / size.w;
-  const src = useDeferredValue(liveSrc(url, liveOverrides({ tokens, source })));
+  const target = liveSrc(url, liveOverrides({ tokens, source }));
+  const [src, setSrc] = useState(target);
+  useEffect(() => {
+    if (target === src) return;
+    const timer = setTimeout(() => setSrc(target), 400);
+    return () => clearTimeout(timer);
+  }, [target, src]);
 
   const push = useCallback(() => {
     frame.current?.contentWindow?.postMessage({ type: "seam:tokens", vars: bridgeVars(tokens) }, "*");

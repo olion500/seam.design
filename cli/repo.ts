@@ -76,6 +76,10 @@ export function buildProject({ config, routes, nodes, edges, tokens, tokenFile, 
   });
 
   const ids = new Set(screens.map((s) => s.id));
+  for (const s of screens) {
+    const outside = [...new Set(edges.filter((e) => e.from === s.id && !ids.has(e.to)).map((e) => nodes.get(e.to)?.name ?? e.to))];
+    s.exitsOutside = outside.length ? outside : undefined;
+  }
   const prevTransitions = new Map(previous?.transitions.map((t) => [transitionKey(t), t]));
   const imported: Transition[] = edges
     .filter((e) => ids.has(e.from) && ids.has(e.to) && e.from !== e.to)

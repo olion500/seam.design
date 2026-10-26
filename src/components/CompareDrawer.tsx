@@ -2,7 +2,9 @@ import { useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
+import { LiveFrame } from "@/components/LiveFrame";
 import { ScreenView } from "@/components/ScreenView";
+import { liveStatus, useLiveApp } from "@/lib/liveApp";
 import { StatusBadge } from "@/components/bits";
 import { TransitionPlayer } from "@/components/TransitionPlayer";
 import { screenChanges } from "@/model/diff";
@@ -15,6 +17,9 @@ export function CompareDrawer() {
   const project = useEditor((s) => s.project);
   const compareIds = useEditor((s) => s.compareIds);
   const { clearCompare, toggleCompare, select } = useEditor.getState();
+  const liveMode = useEditor((s) => s.project.render === "live");
+  const firstLive = useEditor((s) => s.project.screens.find((x) => x.live)?.live?.url);
+  const live = useLiveApp((s) => liveMode && liveStatus(s, firstLive) === "up");
   const [mode, setMode] = useState<"side" | "overlay">("side");
   const [opacity, setOpacity] = useState(60);
 
@@ -48,8 +53,8 @@ export function CompareDrawer() {
         </fieldset>
         {mode === "overlay" && (
           <div className="flex items-center gap-3 text-sm">
-            <span aria-hidden>시안 투명도</span>
-            <Slider aria-label="시안 투명도" className="w-32" value={[opacity]} max={100} step={1} onValueChange={([v]) => setOpacity(v)} />
+            <span aria-hidden>위 화면 투명도</span>
+            <Slider aria-label="위 화면 투명도" className="w-32" value={[opacity]} max={100} step={1} onValueChange={([v]) => setOpacity(v)} />
             <span className="w-10 text-right font-bold tabular-nums">{opacity}%</span>
           </div>
         )}
@@ -75,6 +80,11 @@ export function CompareDrawer() {
                 <Labeled label="기준">
                   <ScreenView screen={s} mode="baseline" width={W} tokens={project.tokens} />
                 </Labeled>
+                {live && s.live && (
+                  <Labeled label="라이브 (지금 코드)">
+                    <LiveFrame screen={s} url={s.live.url} width={W} compact />
+                  </Labeled>
+                )}
                 {s.variant && (
                   <Labeled label="시안">
                     <ScreenView screen={s} mode="variant" width={W} tokens={project.tokens} changedIds={new Set(screenChanges(s).map((c) => c.elementId ?? ""))} />
@@ -82,10 +92,14 @@ export function CompareDrawer() {
                 )}
               </div>
             ) : (
-              <Labeled label={s.variant ? "기준 + 시안 (위에 겹침)" : "기준 (시안 없음)"}>
+              <Labeled label={live && s.live ? "기준 + 라이브 (위에 겹침)" : s.variant ? "기준 + 시안 (위에 겹침)" : "기준 (시안 없음)"}>
                 <div className="relative" style={{ width: W * 1.4 }}>
                   <ScreenView screen={s} mode="baseline" width={W * 1.4} tokens={project.tokens} />
-                  {s.variant && (
+                  {live && s.live ? (
+                    <div className="absolute inset-0" style={{ opacity: opacity / 100 }}>
+                      <LiveFrame screen={s} url={s.live.url} width={W * 1.4} compact />
+                    </div>
+                  ) : s.variant && (
                     <div className="absolute inset-0" style={{ opacity: opacity / 100 }}>
                       <ScreenView screen={s} mode="variant" width={W * 1.4} tokens={project.tokens} />
                     </div>
@@ -114,7 +128,7 @@ export function CompareDrawer() {
           );
         })}
       </div>
-      {mode === "overlay" && <p className="px-6 pb-3 text-xs text-muted-foreground">슬라이더를 0%로 내리면 기준만, 100%로 올리면 시안만 보입니다.</p>}
+      {mode === "overlay" && <p className="px-6 pb-3 text-xs text-muted-foreground">슬라이더를 0%로 내리면 기준만, 100%로 올리면 위 화면만 보입니다.</p>}
     </section>
   );
 }

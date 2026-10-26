@@ -48,7 +48,7 @@ export function runRule(project: Project, rule: Rule): RuleResult {
     case "no-dead-end":
       return result(
         project.screens
-          .filter((s) => !s.terminal && !project.transitions.some((t) => t.from === s.id))
+          .filter((s) => !s.terminal && !s.exitsOutside?.length && !project.transitions.some((t) => t.from === s.id))
           .map((s) => ({ screenId: s.id, message: `${s.name}: 나가는 전이 없음` })),
         project.screens.length,
       );

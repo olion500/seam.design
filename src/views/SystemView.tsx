@@ -22,6 +22,8 @@ export function SystemView() {
       const spec = displaySpec(s);
       return spec && tokensInSpec(spec).includes(name);
     }).length;
+  const imported = !!project.source;
+  const sourceOf = (name: string) => project.source?.tokens[name];
   const usedVariants = new Set(project.screens.flatMap((s) => (displaySpec(s)?.elements ?? []).map((e) => e.variant)));
 
   return (
@@ -29,7 +31,7 @@ export function SystemView() {
       <nav aria-label="구역" className="flex flex-wrap gap-2">
         {[
           ["#tokens", `토큰 ${project.tokens.length}`],
-          ["#components", `컴포넌트 ${VARIANTS.length}`],
+          ...(imported ? [] : [["#components", `컴포넌트 ${VARIANTS.length}`]]),
           ["#assets", `에셋 ${project.assets.length}`],
         ].map(([href, label], i) => (
           <a
@@ -54,7 +56,7 @@ export function SystemView() {
                 <th scope="col" className="border-b px-4 py-3 font-[550]">이름</th>
                 <th scope="col" className="border-b px-4 py-3 font-[550]">값</th>
                 <th scope="col" className="border-b px-4 py-3 font-[550]">종류</th>
-                <th scope="col" className="border-b px-4 py-3 text-right font-[550]">쓰는 화면</th>
+                <th scope="col" className="border-b px-4 py-3 text-right font-[550]">{imported ? "소스" : "쓰는 화면"}</th>
               </tr>
             </thead>
             <tbody>
@@ -79,7 +81,15 @@ export function SystemView() {
                       </span>
                     </td>
                     <td className="border-b px-4 py-3">{KIND[t.kind]}</td>
-                    <td className={cn("border-b px-4 py-3 text-right", active && "font-bold")}>{usage(t.name)}</td>
+                    <td className={cn("border-b px-4 py-3 text-right", active && "font-bold")}>
+                      {imported ? (
+                        <code className="font-mono text-[13px] text-muted-foreground">
+                          {sourceOf(t.name) ? `${sourceOf(t.name)?.file}:${sourceOf(t.name)?.line}` : "-"}
+                        </code>
+                      ) : (
+                        usage(t.name)
+                      )}
+                    </td>
                   </tr>
                 );
               })}
@@ -88,6 +98,7 @@ export function SystemView() {
         </div>
       </section>
 
+      {!imported && (
       <section id="components" className="flex flex-col gap-4">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="text-2xl font-extrabold">컴포넌트 변형</h2>
@@ -112,6 +123,8 @@ export function SystemView() {
           ))}
         </div>
       </section>
+
+      )}
 
       <section id="assets" className="flex flex-col gap-4">
         <h2 className="text-2xl font-extrabold">에셋</h2>

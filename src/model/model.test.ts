@@ -43,6 +43,12 @@ describe("rules", () => {
     expect(byCheck(p)["reduced-motion"].violations.length).toBe(p.transitions.filter((t) => t.motionId === "push").length);
   });
 
+  it("does not call a screen a dead end when its exits lead to screens that were not imported", () => {
+    const p = seedProject();
+    p.screens.find((s) => s.id === "login")!.exitsOutside = ["회원가입"];
+    expect(byCheck(p)["no-dead-end"].violations).toHaveLength(0);
+  });
+
   it("returns no violations for a disabled rule", () => {
     const p = seedProject();
     for (const r of p.rules) r.enabled = false;
@@ -88,6 +94,7 @@ describe("live token overrides", () => {
     };
     const overrides = liveOverrides({ tokens, source });
     expect(overrides).toEqual({ "colors.primary": "#3F5A2E" });
+    expect(liveOverrides({ tokens: [{ ...tokens[0], value: "#3F5A" }], source })).toEqual({});
     const url = new URL(liveSrc("http://localhost:8081/prepare?x=1", overrides));
     expect(url.pathname).toBe("/prepare");
     expect(url.searchParams.get("x")).toBe("1");

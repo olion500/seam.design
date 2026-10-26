@@ -17,6 +17,7 @@ flowchart TD
   PREP1["PREP1 · 추출 준비 /prepare"]
   BEAN["BEAN · 원두 상세 /bean/[id]"]
   HOME -->|추출 준비| PREP1
+  HOME -->|개발 화면| DEV
   BEAN -->|이 원두로 추출 준비| PREP1
   DIRECT -->|개발 URL| DEV["UI_LAB / UI_AUDIT"]
 \`\`\`
@@ -76,6 +77,7 @@ describe("parsers", () => {
     expect(nodes.get("DEV")?.route).toBeUndefined();
     expect(edges).toEqual([
       { from: "HOME", to: "PREP1", label: "추출 준비" },
+      { from: "HOME", to: "DEV", label: "개발 화면" },
       { from: "BEAN", to: "PREP1", label: "이 원두로 추출 준비" },
       { from: "DIRECT", to: "DEV", label: "개발 URL" },
       { from: "PREP1", to: "HOME", label: "취소" },
@@ -117,6 +119,7 @@ describe("seam CLI round trip", () => {
     expect(p.render).toBe("live");
     expect(p.screens[0].size).toEqual({ w: 402, h: 874 });
     expect(p.transitions.map((t) => `${t.from}>${t.to}`)).toEqual(["HOME>PREP1", "PREP1>HOME"]);
+    expect(p.screens.find((s) => s.id === "HOME")?.exitsOutside).toEqual(["UI_LAB / UI_AUDIT"]);
     expect(pendingChanges(p)).toEqual([]);
   });
 
@@ -147,6 +150,15 @@ describe("seam CLI round trip", () => {
     const after = await readProject(root);
     expect(after.source?.tokens["colors-primary"].value).toBe("#496238");
     expect(after.screens[0].requests).toEqual([]);
+  });
+
+  it("reports missing configured paths as a JSON error", async () => {
+    const config = await Bun.file(join(root, ".seam/seam.json")).json();
+    config.routes.dir = "app-missing";
+    writeFileSync(join(root, ".seam/seam.json"), JSON.stringify(config));
+    const { code, json } = await seam(root, "import");
+    expect(code).toBe(1);
+    expect(json.error).toContain("routes.dir=app-missing");
   });
 
   it("installs the skill with an absolute CLI path for both agents", async () => {

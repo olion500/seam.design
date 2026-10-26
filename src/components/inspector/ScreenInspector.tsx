@@ -6,6 +6,7 @@ import { ScreenView } from "@/components/ScreenView";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Eyebrow, Field, Section, StatusBadge, selectClass } from "@/components/bits";
+import { deviceOf } from "@/model/devices";
 import { screenChanges } from "@/model/diff";
 import { tokensInSpec } from "@/model/tokens";
 import type { ButtonVariant, Screen, ScreenElement, ScreenSpec } from "@/model/types";
@@ -24,6 +25,8 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
   const spec = screen.variant?.spec ?? screen.baseline?.spec;
   const screenRules = results.filter((r) => r.rule.enabled && r.scopeLabel === "화면");
   const [capturing, setCapturing] = useState(false);
+  const device = deviceOf(project.device);
+  const imported = !!screen.route && !screen.baseline?.spec;
 
   return (
     <>
@@ -50,7 +53,12 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
         <dl className="grid grid-cols-[88px_1fr] gap-x-3 gap-y-2.5 text-sm">
           <dt className="text-muted-foreground">크기</dt>
           <dd>
-            {screen.size.w} × {screen.size.h}
+            {device.width} × {device.height} <span className="text-muted-foreground">{device.name}</span>
+            {screen.baseline?.image && (screen.size.w !== device.width || screen.size.h !== device.height) && (
+              <span className="block text-[13px] text-muted-foreground">
+                기준 캡처는 {screen.size.w} × {screen.size.h} · 다시 찍으면 맞춰집니다
+              </span>
+            )}
           </dd>
           <dt className="text-muted-foreground">기준</dt>
           <dd className="flex items-center gap-2">
@@ -66,6 +74,8 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
           <dd>
             {screen.variant ? (
               `v${screen.variant.version} · ${screen.variant.updatedAt}`
+            ) : imported ? (
+              <span className="text-[13px] leading-relaxed text-muted-foreground">실제 앱 화면입니다. 아래 변경 요청이나 토큰으로 고칩니다.</span>
             ) : (
               <Button size="sm" variant="brand" onClick={() => ed.createVariant(screen.id)}>
                 시안 만들기
@@ -144,7 +154,13 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
       <SourcesEditor screen={screen} tokens={spec ? tokensInSpec(spec) : []} />
 
       <Section title="나가는 전이">
+        {screen.exitsOutside?.length ? (
+          <p className="text-[13px] leading-relaxed text-muted-foreground">
+            가져오지 않은 화면으로도 나갑니다: {screen.exitsOutside.join(", ")}
+          </p>
+        ) : null}
         {outgoing.length === 0 ? (
+          !screen.exitsOutside?.length &&
           <p className="text-sm text-muted-foreground">없음. 화면 속 요소를 다른 화면으로 끌어 만드세요.</p>
         ) : (
           outgoing.map((t) => (
@@ -193,7 +209,7 @@ function RequestEditor({ screen }: { screen: Screen }) {
   return (
     <Section title={`변경 요청 ${requests.length}`}>
       <div className="overflow-hidden rounded-lg border">
-        <ScreenView screen={screen} mode="baseline" width={300} tokens={tokens} focusId={elementKey || null} />
+        <ScreenView screen={screen} mode="baseline" width={Math.round(screen.size.w * 0.75)} tokens={tokens} focusId={elementKey || null} />
       </div>
       <form
         className="flex flex-col gap-2"
@@ -259,6 +275,7 @@ function RequestEditor({ screen }: { screen: Screen }) {
 }
 
 function LiveSection({ screen }: { screen: Screen }) {
+  const device = deviceOf(useEditor((s) => s.project.device));
   const [url, setUrl] = useState(screen.live?.url ?? "");
   const apply = () => useEditor.getState().setLiveUrl(screen.id, url.trim() || undefined);
   return (
@@ -282,7 +299,7 @@ function LiveSection({ screen }: { screen: Screen }) {
         </Button>
       </form>
       {screen.live ? (
-        <LiveFrame screen={screen} url={screen.live.url} width={300} />
+        <LiveFrame screen={screen} url={screen.live.url} width={Math.round(device.width * 0.75)} />
       ) : (
         <p className="text-sm leading-relaxed text-muted-foreground">
           이 화면을 그리는 React 앱 주소를 넣으면 실제 앱을 시안으로 띄웁니다. 앱에 <code className="font-mono">seam-bridge.js</code>를 넣으면 토큰 변경이 바로

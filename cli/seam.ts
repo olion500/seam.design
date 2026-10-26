@@ -75,6 +75,12 @@ async function detectConfig(root: string): Promise<SeamConfig> {
 
 async function importProject(root: string, previous?: Project): Promise<Project> {
   const config = await readJSON<SeamConfig>(configPath(root));
+  const missing = [
+    ["routes.dir", config.routes.dir],
+    ["tokens.file", config.tokens?.file],
+    ["flows.file", config.flows?.file],
+  ].filter(([, path]) => path && !existsSync(join(root, path)));
+  if (missing.length) throw new SeamError(`.seam/seam.json의 경로가 레포에 없습니다: ${missing.map(([k, p]) => `${k}=${p}`).join(", ")}`);
   const routes = expoRoutes(root, config.routes.dir);
   const flows = config.flows ? mermaidFlows(await Bun.file(join(root, config.flows.file)).text()) : { nodes: new Map(), edges: [] };
   const tokens = config.tokens ? await loadTokens(join(root, config.tokens.file), config.tokens.exports) : [];

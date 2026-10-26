@@ -206,7 +206,19 @@ function TokenInspector({ token }: { token: Token }) {
           </fieldset>
         )}
       </Section>
-      <Section title={`쓰는 화면 ${users.length}`} action={<span className="text-[13px] text-muted-foreground">즉시 갱신</span>}>
+      {project.source?.tokens[token.name] && (
+        <Section title="소스">
+          <code className="rounded-lg bg-muted px-2.5 py-2 font-mono text-[13px]">
+            {project.source.tokens[token.name].path} · {project.source.tokens[token.name].file}:{project.source.tokens[token.name].line}
+          </code>
+          <p className="text-[13px] leading-relaxed text-muted-foreground">
+            {project.source.tokens[token.name].value === token.value
+              ? "코드와 같은 값입니다."
+              : `코드는 ${project.source.tokens[token.name].value}입니다. AI에게 “seam 변경 반영해 줘”라고 하면 코드에 반영합니다.`}
+          </p>
+        </Section>
+      )}
+      {!project.source?.tokens[token.name] && <Section title={`쓰는 화면 ${users.length}`} action={<span className="text-[13px] text-muted-foreground">즉시 갱신</span>}>
         <div className="grid grid-cols-2 gap-3">
           {users.map((s) => (
             <button
@@ -225,7 +237,7 @@ function TokenInspector({ token }: { token: Token }) {
             </button>
           ))}
         </div>
-      </Section>
+      </Section>}
     </>
   );
 }
