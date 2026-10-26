@@ -15,7 +15,7 @@ import { useSync } from "@/store/persist";
 import { isDirty, useEditor } from "@/store/store";
 import { download, pickFile } from "@/lib/files";
 import { cn } from "@/lib/utils";
-import { OpenProjectDialog, ShareDialog } from "./ProjectDialogs";
+import { OpenProjectDialog, SendToAgentDialog, ShareDialog } from "./ProjectDialogs";
 import { SearchDialog } from "./SearchDialog";
 
 const VIEWS: { id: View; label: string }[] = [
@@ -34,6 +34,7 @@ export function TopBar() {
   const [searching, setSearching] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [opening, setOpening] = useState(false);
+  const [sending, setSending] = useState(false);
   const [error, setError] = useState<string>();
 
   const importJSON = async () => {
@@ -109,6 +110,11 @@ export function TopBar() {
         <Button variant="secondary" onClick={() => setSharing(true)}>
           공유
         </Button>
+        {sync.repo && (
+          <Button variant="secondary" onClick={() => setSending(true)}>
+            AI에게 보내기
+          </Button>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button>
@@ -134,6 +140,7 @@ export function TopBar() {
       <SearchDialog open={searching} onOpenChange={setSearching} />
       <ShareDialog open={sharing} onOpenChange={setSharing} />
       <OpenProjectDialog open={opening} onOpenChange={setOpening} />
+      <SendToAgentDialog open={sending} onOpenChange={setSending} />
     </header>
   );
 }
