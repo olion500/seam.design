@@ -62,7 +62,7 @@ export async function startPersistence() {
 
   if (repoProject) {
     editor.loadProject(repoProject);
-    useSync.setState({ status: "repo", notice: `${repo?.root}의 .seam/을 열었습니다. 고친 내용은 그 레포에 저장됩니다.` });
+    useSync.setState({ status: "repo" });
   } else if (shared) {
     editor.loadProject(shared, false);
     useSync.setState({ notice: "공유받은 명세의 사본을 열었습니다. 고쳐도 원본은 바뀌지 않습니다." });

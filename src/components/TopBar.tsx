@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ChevronDown, Search } from "lucide-react";
+import { Cloud, CloudOff, Ellipsis, FolderGit2, Search, Send, Share2 } from "lucide-react";
+import { Tip } from "@/components/bits";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -65,13 +66,23 @@ export function TopBar() {
             <span className="sr-only">저장 안 됨</span>
           </span>
         )}
-        {sync.status === "local-only" && !dirty && (
-          <span className="shrink-0 text-xs text-muted-foreground" title="서버에 연결하지 못해 이 브라우저에만 저장했습니다">
-            로컬에만 저장됨
-          </span>
+        {sync.repo ? (
+          <Tip label={`${sync.repo}/.seam/에 저장${dirty ? "합니다" : "됨"}`}>
+            <span tabIndex={-1} className="inline-flex min-w-0 shrink items-center gap-1 text-xs text-muted-foreground">
+              <FolderGit2 className="size-3.5 shrink-0" />
+              <span className="truncate">{sync.repo.split("/").pop()}</span>
+            </span>
+          </Tip>
+        ) : (
+          !dirty &&
+          (sync.status === "local-only" || sync.status === "server") && (
+            <Tip label={sync.status === "server" ? "서버에 저장됨" : "서버에 연결하지 못해 이 브라우저에만 저장했습니다"}>
+              <span tabIndex={-1} className={cn("shrink-0", sync.status === "server" ? "text-muted-foreground" : "text-warn")}>
+                {sync.status === "server" ? <Cloud className="size-4" aria-label="서버에 저장됨" /> : <CloudOff className="size-4" aria-label="로컬에만 저장됨" />}
+              </span>
+            </Tip>
+          )
         )}
-        {sync.status === "server" && !dirty && <span className="shrink-0 text-xs text-muted-foreground">서버에 저장됨</span>}
-        {sync.status === "repo" && !dirty && <span className="shrink-0 text-xs text-muted-foreground" title={sync.repo ?? ""}>레포에 저장됨</span>}
         {(error ?? sync.notice) && (
           <button
             type="button"
@@ -104,23 +115,24 @@ export function TopBar() {
       </nav>
 
       <div className="flex flex-[1_1_240px] items-center justify-end gap-2">
-        <Button variant="secondary" size="icon" aria-label="검색" onClick={() => setSearching(true)}>
-          <Search />
-        </Button>
-        <Button variant="secondary" onClick={() => setSharing(true)}>
-          공유
-        </Button>
-        {sync.repo && (
-          <Button variant="secondary" onClick={() => setSending(true)}>
-            AI에게 보내기
+        <Tip label="검색">
+          <Button variant="secondary" size="icon" aria-label="검색" onClick={() => setSearching(true)}>
+            <Search />
           </Button>
-        )}
+        </Tip>
+        <Tip label="공유 링크 만들기">
+          <Button variant="secondary" size="icon" aria-label="공유" onClick={() => setSharing(true)}>
+            <Share2 />
+          </Button>
+        </Tip>
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button>
-              명세 내보내기 <ChevronDown />
-            </Button>
-          </DropdownMenuTrigger>
+          <Tip label="내보내기 · 프로젝트">
+            <DropdownMenuTrigger asChild>
+              <Button variant="secondary" size="icon" aria-label="내보내기와 프로젝트 메뉴">
+                <Ellipsis />
+              </Button>
+            </DropdownMenuTrigger>
+          </Tip>
           <DropdownMenuContent align="end" className="w-52">
             <DropdownMenuLabel>내보내기</DropdownMenuLabel>
             <DropdownMenuItem onSelect={() => download(`${name}.md`, toMarkdown(useEditor.getState().project), "text/markdown")}>Markdown 명세</DropdownMenuItem>
@@ -133,6 +145,11 @@ export function TopBar() {
             <DropdownMenuItem onSelect={() => ed.loadExample()}>예시 프로젝트 불러오기</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        {sync.repo && (
+          <Button onClick={() => setSending(true)}>
+            <Send /> AI에게 보내기
+          </Button>
+        )}
         <span role="img" aria-label="sanghun oh" title="sanghun oh" className="ml-1 flex size-8 items-center justify-center rounded-full bg-chip text-xs font-bold">
           SO
         </span>

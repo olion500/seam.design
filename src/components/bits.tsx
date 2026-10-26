@@ -1,6 +1,19 @@
 import type { ReactNode } from "react";
 import { AlertTriangle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+
+/** Hover/focus tooltip for icon buttons and short chips; the longer explanation lives here instead of on screen. */
+export function Tip({ label, children, side }: { label: ReactNode; children: ReactNode; side?: "top" | "bottom" | "left" | "right" }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side={side} className="max-w-64 text-center leading-relaxed">
+        {label}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 export function StatusBadge({ variant, children, className }: { variant: boolean; children?: ReactNode; className?: string }) {
   return (

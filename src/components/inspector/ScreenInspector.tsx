@@ -1,16 +1,15 @@
 import { useState } from "react";
-import { ArrowRight, Check, ExternalLink, Globe, ImagePlus, Trash2, TriangleAlert, X } from "lucide-react";
+import { ArrowRight, Check, ExternalLink, Globe, ImagePlus, MousePointerClick, Trash2, TriangleAlert, X } from "lucide-react";
 import { CaptureDialog } from "@/components/CaptureDialog";
 import { ScreenView } from "@/components/ScreenView";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Eyebrow, Field, Prop, Section, StatusBadge, Toggle, selectClass } from "@/components/bits";
+import { Eyebrow, Field, Prop, Section, StatusBadge, Tip, Toggle, selectClass } from "@/components/bits";
 import { deviceOf } from "@/model/devices";
 import { screenChanges } from "@/model/diff";
 import { tokensInSpec } from "@/model/tokens";
 import type { ButtonVariant, CapturedElement, Screen, ScreenElement, ScreenSpec } from "@/model/types";
 import { imageSrc } from "@/lib/api";
-import { useSync } from "@/store/persist";
 import { uploadBaseline } from "@/store/actions";
 import { useRuleState } from "@/store/derived";
 import { useEditor } from "@/store/store";
@@ -48,9 +47,7 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
             </div>
           )}
         </div>
-        <Button variant="secondary" size="icon" aria-label="검사기 닫기" onClick={() => ed.select(null)}>
-          <X />
-        </Button>
+        <HeaderActions onDelete={() => ed.removeScreen(screen.id)} deleteLabel="화면 삭제" />
       </div>
 
       {screen.baseline?.elements && <RequestEditor screen={screen} />}
@@ -95,7 +92,7 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
             onBlur={(e) => ed.updateScreen(screen.id, { states: e.target.value.split(/[·,]/).map((x) => x.trim()).filter(Boolean) })}
           />
         </Field>
-        <Toggle label="마지막 화면 (나가는 전이가 없어도 됨)" checked={!!screen.terminal} onChange={(v) => ed.updateScreen(screen.id, { terminal: v })} />
+        <Toggle label="마지막 화면" checked={!!screen.terminal} onChange={(v) => ed.updateScreen(screen.id, { terminal: v })} />
       </Section>
 
       {screen.variant && (
@@ -151,13 +148,15 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
 
       <Section title="나가는 전이">
         {screen.exitsOutside?.length ? (
-          <p className="text-[13px] leading-relaxed text-muted-foreground">
-            가져오지 않은 화면으로도 나갑니다: {screen.exitsOutside.join(", ")}
-          </p>
+          <Tip label={screen.exitsOutside.join(", ")}>
+            <span tabIndex={-1} className="self-start text-[13px] text-muted-foreground underline decoration-dotted underline-offset-4">
+              가져오지 않은 화면 {screen.exitsOutside.length}곳으로도 나감
+            </span>
+          </Tip>
         ) : null}
         {outgoing.length === 0 ? (
           !screen.exitsOutside?.length &&
-          <p className="text-sm text-muted-foreground">없음. 화면 속 요소를 다른 화면으로 끌어 만드세요.</p>
+          <p className="text-sm text-muted-foreground">없음</p>
         ) : (
           outgoing.map((t) => (
             <button
@@ -176,25 +175,19 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
         )}
       </Section>
 
-      <Section title="관리">
-        <div className="flex flex-wrap gap-2">
-          {screen.variant && (
-            <Button variant="secondary" size="sm" onClick={() => ed.discardVariant(screen.id)}>
-              시안 버리기
-            </Button>
-          )}
-          <Button variant="secondary" size="sm" onClick={() => ed.removeScreen(screen.id)}>
-            <Trash2 /> 화면 삭제
+      {screen.variant && (
+        <Section title="시안">
+          <Button variant="secondary" size="sm" className="self-start" onClick={() => ed.discardVariant(screen.id)}>
+            <Trash2 /> 시안 버리기
           </Button>
-        </div>
-      </Section>
+        </Section>
+      )}
     </>
   );
 }
 
 function RequestEditor({ screen }: { screen: Screen }) {
   const tokens = useEditor((s) => s.project.tokens);
-  const repo = useSync((s) => s.repo);
   const ed = useEditor.getState();
   const elements = screen.baseline?.elements ?? [];
   const [elementKey, setElementKey] = useState("");
@@ -223,7 +216,11 @@ function RequestEditor({ screen }: { screen: Screen }) {
             </button>
           </>
         ) : (
-          <span className="text-muted-foreground">화면 전체 · 요소를 눌러 고를 수 있습니다</span>
+          <Tip label="위 화면에서 요소를 누르면 그 요소만 고릅니다">
+            <span tabIndex={-1} className="flex items-center gap-1.5 text-muted-foreground">
+              <MousePointerClick className="size-4" /> 화면 전체
+            </span>
+          </Tip>
         )}
       </div>
       <form
@@ -267,9 +264,6 @@ function RequestEditor({ screen }: { screen: Screen }) {
             </li>
           ))}
         </ul>
-      )}
-      {requests.length > 0 && repo && (
-        <p className="text-xs leading-relaxed text-muted-foreground">다 남겼으면 위쪽의 “AI에게 보내기”를 누르세요.</p>
       )}
     </Section>
   );
@@ -463,6 +457,26 @@ function SourcesEditor({ screen, tokens }: { screen: Screen; tokens: string[] })
         </Button>
       </form>
     </Section>
+  );
+}
+
+/** Delete (optional) and close buttons for the top right of every inspector. */
+export function HeaderActions({ onDelete, deleteLabel }: { onDelete?: () => void; deleteLabel: string }) {
+  return (
+    <div className="flex shrink-0 gap-1">
+      {onDelete && (
+        <Tip label={deleteLabel}>
+          <Button variant="ghost" size="icon" aria-label={deleteLabel} className="text-muted-foreground hover:text-destructive" onClick={onDelete}>
+            <Trash2 />
+          </Button>
+        </Tip>
+      )}
+      <Tip label="닫기">
+        <Button variant="secondary" size="icon" aria-label="검사기 닫기" onClick={() => useEditor.getState().select(null)}>
+          <X />
+        </Button>
+      </Tip>
+    </div>
   );
 }
 

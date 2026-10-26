@@ -10,8 +10,10 @@ import {
   type OnConnect,
   type OnConnectEnd,
 } from "@xyflow/react";
-import { ImagePlus, Minus, Plus, SquarePlus } from "lucide-react";
+import { CircleHelp, ImagePlus, Minus, Plus, RefreshCw, SquarePlus, TriangleAlert, WifiOff } from "lucide-react";
+import { Tip } from "@/components/bits";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CompareDrawer } from "@/components/CompareDrawer";
 import { DEFAULT_DEVICE, DEVICES, type DeviceId, deviceSize } from "@/model/devices";
 import { screenChanges } from "@/model/diff";
@@ -142,12 +144,16 @@ function Canvas() {
       <div className="pointer-events-none absolute top-4 right-4 z-10 flex max-w-[calc(100%-220px)] flex-wrap justify-end gap-2 *:pointer-events-auto">
         <RenderPicker />
         <DevicePicker />
-        <Button variant="secondary" className="bg-white shadow-soft" onClick={() => useEditor.getState().addScreen()}>
-          <SquarePlus /> 화면 추가
-        </Button>
-        <Button variant="secondary" className="bg-white shadow-soft" onClick={() => void uploadScreenshot()}>
-          <ImagePlus /> 스크린샷 올리기
-        </Button>
+        <Tip label="빈 화면 추가">
+          <Button variant="secondary" size="icon" className="bg-white shadow-soft" aria-label="화면 추가" onClick={() => useEditor.getState().addScreen()}>
+            <SquarePlus />
+          </Button>
+        </Tip>
+        <Tip label="스크린샷으로 화면 추가">
+          <Button variant="secondary" size="icon" className="bg-white shadow-soft" aria-label="스크린샷 올리기" onClick={() => void uploadScreenshot()}>
+            <ImagePlus />
+          </Button>
+        </Tip>
       </div>
       <Hints comparing={compareIds.length} />
       <ZoomControls />
@@ -166,14 +172,16 @@ function RenderPicker() {
   return (
     <div className="flex items-center gap-2">
       {render === "live" && status === "down" && (
-        <button
-          type="button"
-          className="rounded-full bg-warn/30 px-3 py-1.5 text-[13px]"
-          title={`${new URL(liveUrl).origin}에 연결할 수 없어 스크린샷을 보여 줍니다. 앱을 실행한 뒤 누르세요.`}
-          onClick={() => void checkLiveApp(liveUrl)}
-        >
-          앱 꺼짐 · 스크린샷 표시 · 다시 확인
-        </button>
+        <Tip label={`${new URL(liveUrl).origin}에 연결할 수 없어 스크린샷을 보여 줍니다. 앱을 켜고 누르면 다시 확인합니다.`}>
+          <button
+            type="button"
+            aria-label="앱 꺼짐, 다시 확인"
+            className="inline-flex h-8 items-center gap-1.5 rounded-full bg-warn/30 px-3 text-[13px]"
+            onClick={() => void checkLiveApp(liveUrl)}
+          >
+            <WifiOff className="size-3.5" /> 앱 꺼짐 <RefreshCw className="size-3.5 text-muted-foreground" />
+          </button>
+        </Tip>
       )}
       <fieldset aria-label="렌더 방식" className="flex gap-1 rounded-lg bg-white p-1 shadow-soft">
         {(
@@ -209,9 +217,11 @@ function DevicePicker() {
   return (
     <div className="flex items-center gap-2">
       {stale > 0 && showingShots && (
-        <span className="rounded-full bg-warn/30 px-3 py-1.5 text-[13px]" title={repo ? "AI에게 “seam으로 다시 캡처해 줘”라고 하거나 seam capture를 실행하세요" : "이 기기 크기로 스크린샷을 다시 올리세요"}>
-          기준 스크린샷 {stale}개는 다른 기기 크기 · {repo ? "seam capture로 다시 찍기" : "다시 올리기"}
-        </span>
+        <Tip label={`기준 스크린샷 ${stale}개가 다른 기기 크기로 찍혔습니다. ${repo ? "seam capture로 다시 찍으세요." : "이 크기로 다시 올리세요."}`}>
+          <button type="button" className="inline-flex h-8 cursor-default items-center gap-1.5 rounded-full bg-warn/30 px-3 text-[13px]">
+            <TriangleAlert className="size-3.5" /> 크기 다름 {stale}
+          </button>
+        </Tip>
       )}
       <select
         aria-label="기기 크기"
@@ -229,17 +239,38 @@ function DevicePicker() {
   );
 }
 
+const HINTS: [string, string][] = [
+  ["Shift + 클릭", "두 화면 비교"],
+  ["더블클릭", "그 화면으로 크게 보기"],
+  ["확대율 누르기", "전체 보기"],
+  ["요소를 다른 화면으로 끌기", "전이 만들기"],
+];
+
 function Hints({ comparing }: { comparing: number }) {
-  const { zoom } = useViewport();
-  if (zoom > 1.2) return null;
   return (
-    <div className="absolute bottom-4 left-4 z-10 flex max-w-[calc(100%-200px)] flex-wrap gap-2">
-      <span className="inline-flex h-8 items-center gap-2 rounded-full border bg-white px-3 text-[13px]">
-        <kbd className="rounded bg-chip px-1.5 text-xs font-bold">Shift</kbd>+클릭으로 화면 비교
-        {comparing === 1 && <b className="text-brand">· 1개 선택됨, 하나 더</b>}
-      </span>
-      <span className="inline-flex h-8 items-center rounded-full border bg-white px-3 text-[13px]">더블클릭으로 크게 보기 · 확대율을 누르면 전체 보기</span>
-      <span className="inline-flex h-8 items-center rounded-full border bg-white px-3 text-[13px]">화면 속 요소를 다른 노드로 끌면 전이 생성</span>
+    <div className="absolute bottom-4 left-4 z-10 flex items-center gap-2">
+      <Popover>
+        <Tip label="사용법">
+          <PopoverTrigger asChild>
+            <Button variant="secondary" size="icon" className="rounded-full border bg-white" aria-label="사용법">
+              <CircleHelp />
+            </Button>
+          </PopoverTrigger>
+        </Tip>
+        <PopoverContent side="top" align="start" className="w-auto p-3">
+          <dl className="grid grid-cols-[auto_auto] gap-x-4 gap-y-2 text-[13px]">
+            {HINTS.map(([how, what]) => (
+              <div key={how} className="contents">
+                <dt className="font-bold">{how}</dt>
+                <dd className="text-muted-foreground">{what}</dd>
+              </div>
+            ))}
+          </dl>
+        </PopoverContent>
+      </Popover>
+      {comparing === 1 && (
+        <span className="inline-flex h-8 items-center rounded-full border bg-white px-3 text-[13px] font-bold text-brand">비교: 화면 하나 더 Shift + 클릭</span>
+      )}
     </div>
   );
 }

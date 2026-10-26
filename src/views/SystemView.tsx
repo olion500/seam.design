@@ -47,7 +47,6 @@ export function SystemView() {
       <section id="tokens" className="flex flex-col gap-4">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="text-2xl font-extrabold">토큰</h2>
-          <span className="text-sm text-muted-foreground">값을 바꾸면 그 토큰을 쓰는 시안이 바로 갱신됩니다</span>
         </div>
         <div className="overflow-x-auto bg-white">
           <table className="w-full min-w-[560px] border-collapse text-sm">

@@ -1,5 +1,4 @@
-import { Trash2, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { MousePointerClick } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Eyebrow, Field, Prop, Section, Toggle, selectClass } from "@/components/bits";
 import { ScreenView } from "@/components/ScreenView";
@@ -11,7 +10,7 @@ import { useRuleState } from "@/store/derived";
 import { useEditor } from "@/store/store";
 import { EASING_LABEL } from "@/lib/transition";
 import { cn } from "@/lib/utils";
-import { LinkButton, ScreenInspector } from "./ScreenInspector";
+import { HeaderActions, LinkButton, ScreenInspector } from "./ScreenInspector";
 
 export function Inspector() {
   const selection = useEditor((s) => s.selection);
@@ -51,15 +50,14 @@ export function Inspector() {
 
 function EmptyInspector() {
   return (
-    <div className="flex flex-col gap-2 px-6 py-5">
-      <Eyebrow>검사기</Eyebrow>
-      <h2 className="text-xl font-bold">선택한 항목 없음</h2>
-      <p className="text-sm leading-relaxed text-muted-foreground">화면이나 전이를 선택하면 속성, 규칙, 소스 매핑이 여기에 나옵니다.</p>
+    <div className="flex h-full min-h-60 flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+      <MousePointerClick className="size-6" strokeWidth={1.5} />
+      선택한 항목 없음
     </div>
   );
 }
 
-function Header({ eyebrow, title, sub }: { eyebrow: string; title: React.ReactNode; sub?: string }) {
+function Header({ eyebrow, title, sub, onDelete }: { eyebrow: string; title: React.ReactNode; sub?: string; onDelete?: () => void }) {
   return (
     <div className="flex items-start justify-between gap-3 border-b px-6 py-5">
       <div className="flex min-w-0 flex-col gap-2">
@@ -67,9 +65,7 @@ function Header({ eyebrow, title, sub }: { eyebrow: string; title: React.ReactNo
         <h2 className="text-xl leading-tight font-bold tracking-tight">{title}</h2>
         {sub && <span className="text-sm leading-relaxed text-muted-foreground">{sub}</span>}
       </div>
-      <Button variant="secondary" size="icon" aria-label="검사기 닫기" onClick={() => useEditor.getState().select(null)}>
-        <X />
-      </Button>
+      <HeaderActions onDelete={onDelete} deleteLabel={`${eyebrow} 삭제`} />
     </div>
   );
 }
@@ -85,7 +81,7 @@ function TransitionInspector({ transition: t }: { transition: Transition }) {
 
   return (
     <>
-      <Header eyebrow="전이" title={`${from?.name ?? "?"} → ${to?.name ?? "끊어진 연결"}`} />
+      <Header eyebrow="전이" title={`${from?.name ?? "?"} → ${to?.name ?? "끊어진 연결"}`} onDelete={() => ed.removeTransition(t.id)} />
       {from && to && preset && (
         <Section title="전환 재생">
           <TransitionPlayer from={from} to={to} preset={preset} width={150} />
@@ -111,7 +107,7 @@ function TransitionInspector({ transition: t }: { transition: Transition }) {
             ))}
           </select>
         </Field>
-        <Toggle label="조건부 전이 (점선으로 표시)" checked={t.conditional} onChange={(v) => patch({ conditional: v })} />
+        <Toggle label="조건부 (점선)" checked={t.conditional} onChange={(v) => patch({ conditional: v })} />
       </Section>
       <Section
         title="모션"
@@ -142,11 +138,6 @@ function TransitionInspector({ transition: t }: { transition: Transition }) {
           </div>
         )}
       </Section>
-      <Section title="관리">
-        <Button variant="secondary" size="sm" className="self-start" onClick={() => ed.removeTransition(t.id)}>
-          <Trash2 /> 전이 삭제
-        </Button>
-      </Section>
     </>
   );
 }
@@ -161,13 +152,22 @@ function TokenInspector({ token }: { token: Token }) {
     return spec && tokensInSpec(spec).includes(token.name);
   });
   const invalid = token.kind === "color" && !isHex(token.value);
+  const source = project.source?.tokens[token.name];
 
   return (
     <>
-      <Header eyebrow="토큰" title={<code className="font-mono">{token.name}</code>} sub={token.description} />
+      <Header eyebrow="토큰" title={<code className="font-mono">{token.name}</code>} sub={source ? undefined : token.description} />
       <Section title="값">
         <div className="flex items-center gap-2">
-          {token.kind === "color" && <span aria-hidden className="size-11 shrink-0 rounded-lg border" style={{ background: token.value }} />}
+          {token.kind === "color" && (
+            <input
+              type="color"
+              aria-label="색 고르기"
+              className="size-11 shrink-0 cursor-pointer rounded-lg border bg-white p-0.5"
+              value={isHex(token.value) && token.value.length === 7 ? token.value : "#000000"}
+              onChange={(e) => ed.updateToken(token.name, e.target.value.toUpperCase())}
+            />
+          )}
           <Input
             id="token-value"
             aria-label="토큰 값"
@@ -176,18 +176,9 @@ function TokenInspector({ token }: { token: Token }) {
             value={token.value}
             onChange={(e) => ed.updateToken(token.name, e.target.value)}
           />
-          {token.kind === "color" && (
-            <input
-              type="color"
-              aria-label="색 고르기"
-              className="size-11 shrink-0 cursor-pointer rounded-lg border bg-white p-1"
-              value={isHex(token.value) && token.value.length === 7 ? token.value : "#000000"}
-              onChange={(e) => ed.updateToken(token.name, e.target.value.toUpperCase())}
-            />
-          )}
         </div>
         {invalid && <p className="text-xs text-destructive">#RRGGBB 형식으로 입력하세요</p>}
-        {token.kind === "color" && (
+        {token.kind === "color" && !source && (
           <fieldset aria-label="빠른 선택" className="flex gap-2">
             {QUICK.map((c) => (
               <button
@@ -207,14 +198,15 @@ function TokenInspector({ token }: { token: Token }) {
           <code className="rounded-lg bg-muted px-2.5 py-2 font-mono text-[13px]">
             {project.source.tokens[token.name].path} · {project.source.tokens[token.name].file}:{project.source.tokens[token.name].line}
           </code>
-          <p className="text-[13px] leading-relaxed text-muted-foreground">
-            {project.source.tokens[token.name].value === token.value
-              ? "코드와 같은 값입니다."
-              : `코드는 ${project.source.tokens[token.name].value}입니다. AI에게 “seam 변경 반영해 줘”라고 하면 코드에 반영합니다.`}
-          </p>
+          {project.source.tokens[token.name].value !== token.value && (
+            <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+              <span aria-hidden className="size-2 rounded-full bg-change" />
+              코드 값 <code className="font-mono">{project.source.tokens[token.name].value}</code>
+            </p>
+          )}
         </Section>
       )}
-      {!project.source?.tokens[token.name] && <Section title={`쓰는 화면 ${users.length}`} action={<span className="text-[13px] text-muted-foreground">즉시 갱신</span>}>
+      {!project.source?.tokens[token.name] && <Section title={`쓰는 화면 ${users.length}`}>
         <div className="grid grid-cols-2 gap-3">
           {users.map((s) => (
             <button
