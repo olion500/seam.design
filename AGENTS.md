@@ -71,6 +71,7 @@ seam.design/
 - 저장 상태: `useSync.status` = `idle | saving | server | repo | local-only`. 서버가 꺼져 있어도 로컬 저장은 성공한다.
 - 공유 링크(`#/share/<id>`)는 스냅샷이다. 열면 새 id를 가진 사본으로 복제된다.
 - 레포 모드: `SEAM_REPO`가 설정되면 서버가 `<repo>/.seam/project.json`을 읽고 쓰고, `/repo/<파일>`로 스크린샷을 서빙한다.
+- AI에게 보내기: 레포 모드 상단 버튼 -> `POST /api/repo/send`가 `.seam/changes/sent.json`을 쓰고, 기다리던 `seam wait`가 이를 소비해 변경 묶음과 함께 출력한다(`cli/AGENTS.md`).
 
 ## COMMANDS
 ```bash

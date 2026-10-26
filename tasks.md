@@ -75,6 +75,16 @@
 - [x] 설치: `seam skill install` → `.claude/skills/seam`, `.agents/skills/seam`
 - [x] 첫 적용: coffee의 HOME·PREP1 가져오기, `theme.ts` 토큰 하나 변경, AI 반영, 다시 캡처해 확인
 
+## 11. AI에게 바로 보내기 (plannotator 방식)
+방향: plannotator처럼 편집기에서 "보내기"를 누르면 기다리던 AI가 바로 이어서 작업한다. plannotator 자체는 글과 코드 변경에 메모하는 도구라 화면 요소 요청과 맞지 않아 붙이지 않고, 같은 방식을 직접 만든다.
+- [x] 서버: `POST /api/repo/send`가 `.seam/changes/sent.json`에 보낸 말을 쌓고, `GET /api/repo`가 `agentWaiting`(기다리는 `seam wait`가 있는지)을 알려 줌
+- [x] CLI: `seam wait [--timeout 초]`. 보내기를 기다렸다가 보낸 말과 변경 묶음(`seam changes`와 같음)을 출력. 미리 보내 두었으면 바로 받음
+- [x] 편집기: 레포 모드 상단에 "AI에게 보내기" 버튼과 대화상자(AI 대기 여부, 전할 말, 저장 후 보내기)
+- [x] 스킬: `seam open` 다음에 `seam wait`로 기다리고, 시간 초과면 다시 기다리기
+- [ ] 더 매끄럽게: Claude Code 훅이나 MCP로 AI가 멈춰 있지 않아도 다음 메시지로 받기
+- [ ] 메모 범위 넓히기: 화면의 아무 영역에나 네모를 그려 메모, 전이에 메모
+- [ ] 결과 확인 왕복: AI가 반영한 뒤 화면(`after/`)을 편집기에서 승인 / 다시 요청
+
 ## 구현 메모
 - 개발: `bun install && bun run dev` (Vite 5173 + API 서버 5180, /api는 Vite가 프록시)
 - 운영: `bun run build && bun run start` (한 포트에서 dist와 /api를 함께 서빙, 기본 5180)
