@@ -65,9 +65,12 @@ function Canvas() {
     );
   }, [project.screens, selection, warnings, compareIds, setNodes]);
 
-  const edges = useMemo<TransitionEdgeType[]>(
-    () =>
-      project.transitions.map((t) => {
+  const edges = useMemo<TransitionEdgeType[]>(() => {
+    const groups = new Map<string, string[]>();
+    for (const t of project.transitions) groups.set(`${t.from}>${t.to}`, [...(groups.get(`${t.from}>${t.to}`) ?? []), t.id]);
+    return project.transitions.map((t) => {
+        const group = groups.get(`${t.from}>${t.to}`) ?? [t.id];
+        const offset = (group.indexOf(t.id) - (group.length - 1) / 2) * 28;
         const from = project.screens.find((s) => s.id === t.from);
         const to = project.screens.find((s) => s.id === t.to);
         const selected = selection?.kind === "transition" && selection.id === t.id;
@@ -79,11 +82,10 @@ function Canvas() {
           ...edgeHandles(from?.position ?? { x: 0, y: 0 }, to?.position ?? { x: 0, y: 0 }),
           selected,
           markerEnd: { type: MarkerType.ArrowClosed, color: selected ? "#0085E4" : "#666666", width: 16, height: 16 },
-          data: { label: t.label, conditional: t.conditional, broken: warnings.brokenTransitions.has(t.id) },
+          data: { label: t.label, conditional: t.conditional, broken: warnings.brokenTransitions.has(t.id), offset },
         };
-      }),
-    [project.transitions, project.screens, selection, warnings],
-  );
+      });
+  }, [project.transitions, project.screens, selection, warnings]);
 
   const onChange = useCallback(
     (changes: NodeChange<ScreenNodeType>[]) => onNodesChange(changes.filter((c) => c.type === "position" || c.type === "dimensions")),
@@ -137,7 +139,7 @@ function Canvas() {
       <div className="pointer-events-none absolute top-5 left-6 z-10 text-sm font-bold tracking-wider text-muted-foreground">
         {project.name} · 화면 {project.screens.length}
       </div>
-      <div className="absolute top-4 right-4 z-10 flex max-w-[calc(100%-220px)] flex-wrap justify-end gap-2">
+      <div className="pointer-events-none absolute top-4 right-4 z-10 flex max-w-[calc(100%-220px)] flex-wrap justify-end gap-2 *:pointer-events-auto">
         <RenderPicker />
         <DevicePicker />
         <Button variant="secondary" className="bg-white shadow-soft" onClick={() => useEditor.getState().addScreen()}>

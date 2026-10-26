@@ -1,9 +1,19 @@
-import { BaseEdge, EdgeLabelRenderer, getBezierPath, type Edge, type EdgeProps } from "@xyflow/react";
+import { BaseEdge, EdgeLabelRenderer, getBezierPath, Position, type Edge, type EdgeProps } from "@xyflow/react";
 
-export type TransitionEdgeType = Edge<{ label: string; conditional: boolean; broken: boolean }, "transition">;
+export type TransitionEdgeType = Edge<{ label: string; conditional: boolean; broken: boolean; offset?: number }, "transition">;
 
 export function TransitionEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, selected, markerEnd }: EdgeProps<TransitionEdgeType>) {
-  const [path, labelX, labelY] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
+  const offset = data?.offset ?? 0;
+  const vertical = sourcePosition === Position.Top || sourcePosition === Position.Bottom;
+  const [dx, dy] = vertical ? [offset, 0] : [0, offset];
+  const [path, labelX, labelY] = getBezierPath({
+    sourceX: sourceX + dx,
+    sourceY: sourceY + dy,
+    targetX: targetX + dx,
+    targetY: targetY + dy,
+    sourcePosition,
+    targetPosition,
+  });
   const color = selected ? "var(--brand)" : data?.broken ? "var(--warn)" : "#666";
   return (
     <>

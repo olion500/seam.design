@@ -3,14 +3,15 @@ import { Handle, NodeToolbar, Position, type Node, type NodeProps } from "@xyflo
 import { LiveFrame } from "@/components/LiveFrame";
 import { ScreenView } from "@/components/ScreenView";
 import { StatusBadge, WarnIcon } from "@/components/bits";
+import { deviceOf } from "@/model/devices";
 import { screenChanges } from "@/model/diff";
 import { liveStatus, useLiveApp } from "@/lib/liveApp";
 import { useEditor } from "@/store/store";
 import { cn } from "@/lib/utils";
 import { keepPreview, leaveNode, usePreview } from "./preview";
 
-export const NODE_WIDTH = 160;
-const THUMB = NODE_WIDTH - 16;
+const NODE_SCALE = 0.4;
+const PREVIEW_SCALE = 0.52;
 const INTERACTIVE = new Set(["button", "listItem", "text", "field"]);
 
 const SIDE_HANDLES = [
@@ -41,13 +42,19 @@ function ScreenNodeImpl({ data, selected }: NodeProps<ScreenNodeType>) {
   const liveMode = useEditor((s) => s.project.render === "live");
   const appUp = useLiveApp((s) => liveStatus(s, screen?.live?.url) === "up");
   const showLive = liveMode && appUp && !!screen?.live;
-  const [previewMode, setPreviewMode] = useState<"baseline" | "variant" | "live">(showLive ? "live" : "baseline");
+  const device = deviceOf(useEditor((s) => s.project.device));
+  const [previewChoice, setPreviewMode] = useState<"baseline" | "variant" | "live" | null>(null);
+  const previewMode = previewChoice ?? (showLive ? "live" : "baseline");
 
   if (!screen) return null;
   const changes = screenChanges(screen);
   const changedIds = new Set(changes.map((c) => c.elementId).filter((x): x is string => !!x));
   const focusId = selected ? changes.find((c) => c.id === focusChange)?.elementId : null;
   const hasVariant = !!screen.variant;
+  const frame = showLive ? { w: device.width, h: device.height } : screen.size;
+  const thumbW = Math.round(frame.w * NODE_SCALE);
+  const thumbH = Math.round((frame.h * thumbW) / frame.w);
+  const previewW = Math.round(frame.w * PREVIEW_SCALE);
 
   return (
     <div
@@ -57,21 +64,21 @@ function ScreenNodeImpl({ data, selected }: NodeProps<ScreenNodeType>) {
         data.comparing && !selected && "border-primary",
         hover && "-translate-y-0.5",
       )}
-      style={{ width: NODE_WIDTH }}
+      style={{ width: thumbW + 16 }}
     >
       {SIDE_HANDLES.map((h) => (
         <Handle key={h.id} type={h.type} id={h.id} position={h.position} isConnectable={h.type === "source"} className="side-handle" style={h.style} />
       ))}
-      <div className="relative overflow-hidden rounded bg-muted">
+      <div className="relative overflow-hidden rounded bg-muted" style={{ width: thumbW, height: thumbH }}>
         {showLive && screen.live && (
           <div className="absolute inset-0 z-[1]">
-            <LiveFrame screen={screen} url={screen.live.url} width={THUMB} compact interactive={false} />
+            <LiveFrame screen={screen} url={screen.live.url} width={thumbW} compact interactive={false} />
           </div>
         )}
         <ScreenView
           screen={screen}
           mode="variant"
-          width={THUMB}
+          width={thumbW}
           tokens={tokens}
           changedIds={changedIds}
           layoutChanged={changes.some((c) => c.elementId === null)}
@@ -102,8 +109,9 @@ function ScreenNodeImpl({ data, selected }: NodeProps<ScreenNodeType>) {
         onMouseEnter={keepPreview}
         onMouseLeave={leaveNode}
         aria-label={`${screen.name} 미리 보기`}
+        style={{ zIndex: 40 }}
       >
-        <div className="flex w-[232px] flex-col gap-2.5 rounded-xl bg-white p-3 shadow-pop">
+        <div className="flex flex-col gap-2.5 rounded-xl bg-white p-3 shadow-pop" style={{ width: previewW + 24 }}>
           <div className="flex items-baseline justify-between">
             <span className="text-sm font-bold">{screen.name}</span>
             <span className="text-xs text-muted-foreground">미리 보기</span>
@@ -126,10 +134,10 @@ function ScreenNodeImpl({ data, selected }: NodeProps<ScreenNodeType>) {
             ))}
           </fieldset>
           {previewMode === "live" && screen.live ? (
-            <LiveFrame screen={screen} url={screen.live.url} width={208} />
+            <LiveFrame screen={screen} url={screen.live.url} width={previewW} />
           ) : (
             <div className="overflow-hidden rounded-md">
-              <ScreenView screen={screen} mode={previewMode === "live" ? "variant" : previewMode} width={208} tokens={tokens} />
+              <ScreenView screen={screen} mode={previewMode === "live" ? "variant" : previewMode} width={Math.round(screen.size.w * PREVIEW_SCALE)} tokens={tokens} />
             </div>
           )}
           <span className="text-xs text-muted-foreground">
