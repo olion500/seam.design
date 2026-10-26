@@ -69,6 +69,7 @@ export async function openDeviceView(width: number, height: number, pixelRatio =
   await view.navigate("about:blank");
   await view.cdp("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: pixelRatio, mobile: true });
   await view.cdp("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
+  await view.cdp("Emulation.setScrollbarsHidden", { hidden: true });
   return view;
 }
 
