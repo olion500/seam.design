@@ -39,10 +39,13 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
             onChange={(e) => ed.updateScreen(screen.id, { name: e.target.value })}
             className="-mx-1 rounded px-1 text-xl font-bold tracking-tight outline-none focus:bg-muted"
           />
-          <div className="flex items-center gap-1.5">
-            <StatusBadge variant={!!screen.variant}>{screen.variant ? `시안 v${screen.variant.version}` : "기준"}</StatusBadge>
-            {screen.variant && <span className="text-[13px] text-muted-foreground">기준 대비 변경 {changes.length}건</span>}
-          </div>
+          {(screen.variant || !!screen.requests?.length) && (
+            <div className="flex items-center gap-1.5">
+              {screen.variant && <StatusBadge variant>시안 v{screen.variant.version}</StatusBadge>}
+              {!screen.variant && <span className="inline-flex h-5 items-center rounded-full bg-change px-2 text-xs font-bold text-white">요청 {screen.requests?.length}</span>}
+              <span className="text-[13px] text-muted-foreground">기준 대비 변경 {changes.length}건</span>
+            </div>
+          )}
         </div>
         <Button variant="secondary" size="icon" aria-label="검사기 닫기" onClick={() => ed.select(null)}>
           <X />
