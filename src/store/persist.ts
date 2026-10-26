@@ -1,7 +1,7 @@
 import Dexie, { type EntityTable } from "dexie";
 import { create } from "zustand";
-import { api } from "@/lib/api";
-import type { Project } from "@/model/types";
+import { ApiError, api } from "@/lib/api";
+import type { Project, ReviewState } from "@/model/types";
 import { useEditor } from "./store";
 
 interface StoredProject {
@@ -15,7 +15,25 @@ db.version(1).stores({ projects: "id, updatedAt" });
 
 export type SyncStatus = "idle" | "saving" | "server" | "repo" | "local-only";
 
-export const useSync = create<{ status: SyncStatus; notice: string | null; repo: string | null }>(() => ({ status: "idle", notice: null, repo: null }));
+export const useSync = create<{ status: SyncStatus; notice: string | null; repo: string | null; review: ReviewState | null }>(() => ({
+  status: "idle",
+  notice: null,
+  repo: null,
+  review: null,
+}));
+
+const reviewKey = (r: ReviewState | null) => (r ? `${r.changes.length}|${r.verify?.checkedAt ?? ""}` : "");
+
+/** Re-reads the pending round (change.json + verify.json) the agent leaves in the repo. */
+export async function refreshReview() {
+  let review: ReviewState | null = null;
+  try {
+    review = await api.getReview();
+  } catch (e) {
+    if (!(e instanceof ApiError && e.status === 404)) return;
+  }
+  if (reviewKey(review) !== reviewKey(useSync.getState().review)) useSync.setState({ review });
+}
 
 export async function loadLatest(): Promise<Project | undefined> {
   return (await db.projects.orderBy("updatedAt").last())?.data;
@@ -58,7 +76,12 @@ export async function startPersistence() {
 
   const repo = shared ? null : await api.repo().catch(() => null);
   const repoProject = repo?.hasProject ? await api.getRepoProject().catch(() => null) : null;
-  if (repo) useSync.setState({ repo: repo.root });
+  if (repo) {
+    useSync.setState({ repo: repo.root });
+    // The agent writes verify.json from the terminal; poll so the review button appears without a reload.
+    void refreshReview();
+    setInterval(() => void refreshReview(), 3000);
+  }
 
   if (repoProject) {
     editor.loadProject(repoProject);

@@ -1,4 +1,4 @@
-import type { Project } from "@/model/types";
+import type { Project, ReviewDecision, ReviewState } from "@/model/types";
 
 export class ApiError extends Error {
   constructor(
@@ -27,7 +27,13 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return (res.status === 204 ? undefined : await res.json()) as T;
 }
 
-export const imageSrc = (image: string) => (/^(data:|https?:|\/)/.test(image) ? image : `/repo/${image}`);
+let repoImageVersion = 0;
+/** Call after the CLI rewrote files under .seam/ with the same names, so <img> tags fetch them again. */
+export const bumpRepoImages = () => {
+  repoImageVersion++;
+};
+export const imageSrc = (image: string) =>
+  /^(data:|https?:|\/)/.test(image) ? image : `/repo/${image}${repoImageVersion ? `?v=${repoImageVersion}` : ""}`;
 
 export interface ProjectSummary {
   id: string;
@@ -43,6 +49,9 @@ export const api = {
   getShare: (id: string) => request<Project>("GET", `/shares/${encodeURIComponent(id)}`),
   repo: () => request<{ root: string; hasProject: boolean; agentWaiting: boolean }>("GET", "/repo"),
   sendToAgent: (message: string) => request<{ sentAt: string; agentWaiting: boolean }>("POST", "/repo/send", { message }),
+  getReview: () => request<ReviewState>("GET", "/repo/review"),
+  decideReview: (decisions: ReviewDecision[]) =>
+    request<{ approved: boolean; archived?: string; rejected?: number; agentWaiting: boolean }>("POST", "/repo/review", { decisions }),
   getRepoProject: () => request<Project>("GET", "/repo/project"),
   putRepoProject: (project: Project) => request<{ updatedAt: number }>("PUT", "/repo/project", project),
   capture: (url: string, width: number, height: number) => request<{ image: string; url: string }>("POST", "/capture", { url, width, height }),
