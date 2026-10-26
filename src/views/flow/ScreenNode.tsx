@@ -10,6 +10,7 @@ import { useEditor } from "@/store/store";
 import { cn } from "@/lib/utils";
 
 const NODE_SCALE = 0.4;
+const SCREEN_RADIUS = 6;
 const INTERACTIVE = new Set(["button", "listItem", "text", "field"]);
 
 const SIDE_HANDLES = [
@@ -67,11 +68,11 @@ function ScreenNodeImpl({ data, selected }: NodeProps<ScreenNodeType>) {
       </div>
       <div
         className={cn(
-          "relative overflow-hidden rounded-[14px] border bg-muted shadow-soft",
+          "relative overflow-hidden border bg-muted shadow-soft",
           selected && "outline-2 outline-offset-2 outline-brand",
           data.comparing && !selected && "outline-2 outline-offset-2 outline-primary",
         )}
-        style={{ width: thumbW, height: thumbH }}
+        style={{ width: thumbW, height: thumbH, borderRadius: SCREEN_RADIUS * NODE_SCALE }}
       >
         {showLive && screen.live && (
           <div className="absolute inset-0 z-[1]">
