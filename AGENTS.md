@@ -67,6 +67,8 @@ seam.design/
 - URL 캡처는 받은 URL을 그대로 연다(내부망 포함). 외부 공개 시 허용 주소 제한이 필요하다.
 
 ## UNIQUE STYLES
+- 글씨: 편집기 UI는 Pretendard 하나만 쓴다(`font-mono`, `<code>` 금지). 크기는 `text-xs`(보조) / `text-sm`(본문·구역 제목) / `text-base`(로고·프로젝트 이름) / `text-xl`(보기·패널 제목) 네 단계, 굵기는 보통 / `font-medium` / `font-bold` 세 단계. `text-[13px]` 같은 임의 값은 쓰지 않는다.
+- 검사기 편집: 단순 값은 `quietInput`(평소엔 글자처럼 보임) + `blurOnEnter`(엔터로 적용·포커스 해제, 한글 조합 중엔 무시), 목록은 구역 제목의 `AddButton`(+)으로 추가, 긴 설명은 `Tip` 말풍선으로(`src/components/bits.tsx`).
 - 디자인 토큰은 `src/index.css`의 CSS 변수(primary #000, surface #F5F5F7, accent #0085E4, hairline #DADCE0, warn #F9BA0D, change #F8521F, radius 8px, Pretendard).
 - 저장 상태: `useSync.status` = `idle | saving | server | repo | local-only`. 서버가 꺼져 있어도 로컬 저장은 성공한다.
 - 공유 링크(`#/share/<id>`)는 스냅샷이다. 열면 새 id를 가진 사본으로 복제된다.
