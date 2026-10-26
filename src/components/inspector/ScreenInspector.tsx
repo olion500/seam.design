@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { ArrowRight, Check, Globe, ImagePlus, Trash2, TriangleAlert, X } from "lucide-react";
+import { ArrowRight, Check, ExternalLink, Globe, ImagePlus, Trash2, TriangleAlert, X } from "lucide-react";
 import { CaptureDialog } from "@/components/CaptureDialog";
-import { LiveFrame } from "@/components/LiveFrame";
 import { ScreenView } from "@/components/ScreenView";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +8,9 @@ import { Eyebrow, Field, Section, StatusBadge, selectClass } from "@/components/
 import { deviceOf } from "@/model/devices";
 import { screenChanges } from "@/model/diff";
 import { tokensInSpec } from "@/model/tokens";
-import type { ButtonVariant, Screen, ScreenElement, ScreenSpec } from "@/model/types";
+import type { ButtonVariant, CapturedElement, Screen, ScreenElement, ScreenSpec } from "@/model/types";
+import { imageSrc } from "@/lib/api";
+import { useSync } from "@/store/persist";
 import { uploadBaseline } from "@/store/actions";
 import { useRuleState } from "@/store/derived";
 import { useEditor } from "@/store/store";
@@ -52,6 +53,8 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
         </Button>
       </div>
 
+      {screen.baseline?.elements && <RequestEditor screen={screen} />}
+
       <Section title="속성">
         <dl className="grid grid-cols-[88px_1fr] gap-x-3 gap-y-2.5 text-sm">
           <dt className="text-muted-foreground">크기</dt>
@@ -73,17 +76,23 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
               <Globe className="size-4" />
             </button>
           </dd>
-          <dt className="text-muted-foreground">시안</dt>
+          {!imported && (
+            <>
+              <dt className="text-muted-foreground">시안</dt>
+              <dd>
+                {screen.variant ? (
+                  `v${screen.variant.version} · ${screen.variant.updatedAt}`
+                ) : (
+                  <Button size="sm" variant="brand" onClick={() => ed.createVariant(screen.id)}>
+                    시안 만들기
+                  </Button>
+                )}
+              </dd>
+            </>
+          )}
+          <dt className="text-muted-foreground">앱 주소</dt>
           <dd>
-            {screen.variant ? (
-              `v${screen.variant.version} · ${screen.variant.updatedAt}`
-            ) : imported ? (
-              <span className="text-[13px] leading-relaxed text-muted-foreground">실제 앱 화면입니다. 아래 변경 요청이나 토큰으로 고칩니다.</span>
-            ) : (
-              <Button size="sm" variant="brand" onClick={() => ed.createVariant(screen.id)}>
-                시안 만들기
-              </Button>
-            )}
+            <AppUrl key={screen.live?.url ?? ""} screen={screen} />
           </dd>
           <dt className="text-muted-foreground">상태</dt>
           <dd>
@@ -125,10 +134,6 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
       )}
 
       {screen.variant && <VariantEditor screen={screen} spec={screen.variant.spec} />}
-
-      {screen.baseline?.elements && <RequestEditor screen={screen} />}
-
-      <LiveSection key={screen.live?.url ?? ""} screen={screen} />
 
       <CaptureDialog
         open={capturing}
@@ -201,6 +206,7 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
 
 function RequestEditor({ screen }: { screen: Screen }) {
   const tokens = useEditor((s) => s.project.tokens);
+  const repo = useSync((s) => s.repo);
   const ed = useEditor.getState();
   const elements = screen.baseline?.elements ?? [];
   const [elementKey, setElementKey] = useState("");
@@ -208,11 +214,29 @@ function RequestEditor({ screen }: { screen: Screen }) {
   const [note, setNote] = useState("");
   const requests = screen.requests ?? [];
   const name = (key?: string) => elements.find((e) => e.key === key)?.label ?? "화면 전체";
+  const picked = elements.find((e) => e.key === elementKey);
 
   return (
     <Section title={`변경 요청 ${requests.length}`}>
-      <div className="overflow-hidden rounded-lg border">
-        <ScreenView screen={screen} mode="baseline" width={Math.round(screen.size.w * 0.75)} tokens={tokens} focusId={elementKey || null} />
+      {screen.baseline?.image ? (
+        <PickShot screen={screen} picked={elementKey} onPick={setElementKey} />
+      ) : (
+        <div className="overflow-hidden rounded-lg border">
+          <ScreenView screen={screen} mode="baseline" width={200} tokens={tokens} focusId={elementKey || null} />
+        </div>
+      )}
+      <div className="flex min-h-9 items-center gap-2 rounded-lg bg-muted px-3 py-1.5 text-sm">
+        {picked ? (
+          <>
+            <span className="shrink-0 text-muted-foreground">{ROLE_NAMES[picked.role] ?? picked.role}</span>
+            <b className="min-w-0 flex-1 truncate">{picked.label}</b>
+            <button type="button" aria-label="요소 선택 해제" className="text-muted-foreground hover:text-foreground" onClick={() => setElementKey("")}>
+              <X className="size-4" />
+            </button>
+          </>
+        ) : (
+          <span className="text-muted-foreground">화면 전체 · 요소를 눌러 고를 수 있습니다</span>
+        )}
       </div>
       <form
         className="flex flex-col gap-2"
@@ -224,32 +248,18 @@ function RequestEditor({ screen }: { screen: Screen }) {
           setNote("");
         }}
       >
-        <Field label="요소">
-          <select className={selectClass} value={elementKey} onChange={(e) => setElementKey(e.target.value)}>
-            <option value="">화면 전체</option>
-            {elements.map((e) => (
-              <option key={e.key} value={e.key}>
-                {e.role} · {e.label}
-              </option>
-            ))}
-          </select>
-        </Field>
-        {elementKey && (
-          <Field label="바꿀 문구">
-            <Input className="h-9" placeholder={name(elementKey)} value={label} onChange={(e) => setLabel(e.target.value)} />
-          </Field>
+        {picked && (
+          <Input aria-label="바꿀 문구" className="h-9" placeholder={`바꿀 문구 (지금: ${picked.label})`} value={label} onChange={(e) => setLabel(e.target.value)} />
         )}
-        <Field label="메모">
-          <textarea
-            aria-label="변경 메모"
-            rows={2}
-            placeholder="예: 버튼을 더 크게, 간격을 넓게"
-            className="w-full rounded-lg border border-input px-2 py-1.5 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-          />
-        </Field>
-        <Button type="submit" size="sm" variant="brand" className="self-end" disabled={!label.trim() && !note.trim()}>
+        <textarea
+          aria-label="변경 메모"
+          rows={2}
+          placeholder={picked ? "메모 · 예: 더 크게, 색을 연하게" : "메모 · 예: 간격을 넓게"}
+          className="w-full resize-y rounded-lg border border-input px-3 py-2 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+        />
+        <Button type="submit" size="sm" className="self-end" disabled={!label.trim() && !note.trim()}>
           요청 추가
         </Button>
       </form>
@@ -270,46 +280,73 @@ function RequestEditor({ screen }: { screen: Screen }) {
           ))}
         </ul>
       )}
-      <p className="text-xs leading-relaxed text-muted-foreground">
-        AI에게 “seam 변경 반영해 줘”라고 하면 이 요청과 바뀐 토큰·전이를 코드에 반영합니다.
-      </p>
+      {requests.length > 0 && repo && (
+        <p className="text-xs leading-relaxed text-muted-foreground">다 남겼으면 위쪽의 “AI에게 보내기”를 누르세요.</p>
+      )}
     </Section>
   );
 }
 
-function LiveSection({ screen }: { screen: Screen }) {
-  const device = deviceOf(useEditor((s) => s.project.device));
+const PICK_WIDTH = 200;
+const ROLE_NAMES: Record<string, string> = { button: "버튼", link: "링크", heading: "제목", textbox: "입력칸", img: "이미지", text: "글자", tab: "탭", radio: "선택지", checkbox: "체크박스" };
+
+/** Baseline screenshot whose captured elements can be clicked to pick one. Smaller boxes sit on top of their containers. */
+function PickShot({ screen, picked, onPick }: { screen: Screen; picked: string; onPick: (key: string) => void }) {
+  const scale = PICK_WIDTH / screen.size.w;
+  const box = (e: CapturedElement) => ({ left: e.box.x * scale, top: e.box.y * scale, width: e.box.w * scale, height: e.box.h * scale });
+  const elements = (screen.baseline?.elements ?? []).filter((e) => e.box.w > 0 && e.box.h > 0).sort((a, b) => b.box.w * b.box.h - a.box.w * a.box.h);
+  const requested = new Set((screen.requests ?? []).map((r) => r.elementKey));
+  return (
+    <div className="flex justify-center rounded-lg bg-muted py-4">
+      <div className="relative overflow-hidden rounded-md bg-white shadow-soft" style={{ width: PICK_WIDTH, height: screen.size.h * scale }}>
+        <img src={imageSrc(screen.baseline?.image ?? "")} alt={`${screen.name} 기준`} draggable={false} className="size-full object-cover object-top" />
+        {elements.map((e) => (
+          <button
+            key={e.key}
+            type="button"
+            title={`${e.role} · ${e.label}`}
+            aria-label={`${e.label} 고르기`}
+            aria-pressed={picked === e.key}
+            onClick={() => onPick(picked === e.key ? "" : e.key)}
+            className={cn("absolute rounded-[3px] hover:bg-brand/10 hover:outline-2 hover:outline-brand/60", picked === e.key && "bg-brand/15 outline-2 outline-brand")}
+            style={box(e)}
+          />
+        ))}
+        {elements
+          .filter((e) => requested.has(e.key))
+          .map((e) => (
+            <span
+              key={`dot-${e.key}`}
+              aria-hidden
+              className="pointer-events-none absolute size-2 rounded-full bg-change shadow-[0_0_0_2px_#fff]"
+              style={{ left: box(e).left + box(e).width - 4, top: box(e).top - 4 }}
+            />
+          ))}
+      </div>
+    </div>
+  );
+}
+
+function AppUrl({ screen }: { screen: Screen }) {
   const [url, setUrl] = useState(screen.live?.url ?? "");
   const apply = () => useEditor.getState().setLiveUrl(screen.id, url.trim() || undefined);
   return (
-    <Section title="라이브 시안 (React 앱)">
-      <form
-        className="flex gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          apply();
-        }}
-      >
-        <Input
-          aria-label="라이브 시안 URL"
-          placeholder="http://localhost:5173/checkout"
-          className="h-9 font-mono text-[13px]"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-        />
-        <Button type="submit" size="sm" variant="secondary" className="h-9">
-          열기
-        </Button>
-      </form>
-      {screen.live ? (
-        <LiveFrame screen={screen} url={screen.live.url} width={Math.round(device.width * 0.75)} />
-      ) : (
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          이 화면을 그리는 React 앱 주소를 넣으면 실제 앱을 시안으로 띄웁니다. 앱에 <code className="font-mono">seam-bridge.js</code>를 넣으면 토큰 변경이 바로
-          반영됩니다.
-        </p>
+    <div className="flex items-center gap-1.5">
+      <Input
+        aria-label="앱 주소"
+        placeholder="http://localhost:5173/checkout"
+        className="h-8 min-w-0 font-mono text-xs"
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
+        onBlur={apply}
+        onKeyDown={(e) => e.key === "Enter" && apply()}
+      />
+      {screen.live?.url && (
+        <a href={screen.live.url} target="_blank" rel="noreferrer" aria-label="앱 주소를 새 탭에서 열기" className="shrink-0 text-muted-foreground hover:text-brand">
+          <ExternalLink className="size-4" />
+        </a>
       )}
-    </Section>
+    </div>
   );
 }
 
