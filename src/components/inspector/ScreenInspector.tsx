@@ -73,11 +73,6 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
             </span>
           </Prop>
         </div>
-        {screen.baseline?.image && (screen.size.w !== device.width || screen.size.h !== device.height) && (
-          <p className="rounded-lg bg-warn/15 px-3 py-2 text-xs leading-relaxed">
-            기준 캡처는 {screen.size.w} × {screen.size.h}입니다. seam capture로 다시 찍으면 맞춰집니다.
-          </p>
-        )}
         {!imported && (
           <Prop label="시안">
             {screen.variant ? (

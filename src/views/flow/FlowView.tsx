@@ -203,10 +203,12 @@ function DevicePicker() {
     const size = deviceSize(s.project.device);
     return s.project.screens.filter((x) => x.baseline?.image && (x.size.w !== size.w || x.size.h !== size.h)).length;
   });
+  // Only warn while the canvas shows screenshots; live screens already render at the device size.
+  const showingShots = useEditor((s) => (s.project.render ?? "capture") !== "live" || !s.project.screens.some((x) => x.live));
   const repo = useSync((s) => s.repo);
   return (
     <div className="flex items-center gap-2">
-      {stale > 0 && (
+      {stale > 0 && showingShots && (
         <span className="rounded-full bg-warn/30 px-3 py-1.5 text-[13px]" title={repo ? "AI에게 “seam으로 다시 캡처해 줘”라고 하거나 seam capture를 실행하세요" : "이 기기 크기로 스크린샷을 다시 올리세요"}>
           기준 스크린샷 {stale}개는 다른 기기 크기 · {repo ? "seam capture로 다시 찍기" : "다시 올리기"}
         </span>
