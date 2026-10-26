@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Tip } from "@/components/bits";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -35,7 +36,7 @@ export function OpenProjectDialog({ open, onOpenChange }: { open: boolean; onOpe
       <DialogContent>
         <DialogHeader>
           <DialogTitle>서버 프로젝트 열기</DialogTitle>
-          <DialogDescription>서버에 저장된 명세 목록입니다. 최근에 고친 순서로 보여 줍니다.</DialogDescription>
+          <DialogDescription>최근에 고친 순서</DialogDescription>
         </DialogHeader>
         {list.state === "loading" && <p className="text-sm text-muted-foreground">불러오는 중…</p>}
         {list.state === "error" && <p className="text-sm text-destructive">{list.message}</p>}
@@ -81,7 +82,7 @@ export function SendToAgentDialog({ open, onOpenChange }: { open: boolean; onOpe
     const { project, savedProject } = useEditor.getState();
     if (project !== savedProject) await saveProject(project);
     if (useSync.getState().status !== "repo") {
-      setState({ state: "error", message: "레포에 저장하지 못했습니다. seam open으로 띄운 서버가 켜져 있는지 확인하세요." });
+      setState({ state: "error", message: "레포에 저장하지 못했습니다. seam open 서버를 확인하세요." });
       return;
     }
     try {
@@ -98,12 +99,12 @@ export function SendToAgentDialog({ open, onOpenChange }: { open: boolean; onOpe
       <DialogContent>
         <DialogHeader>
           <DialogTitle>AI에게 보내기</DialogTitle>
-          <DialogDescription>지금까지 남긴 수정 요청, 토큰 변경, 흐름 변경을 저장하고 AI에게 작업을 시작하라고 알립니다.</DialogDescription>
+          <DialogDescription>요청과 바뀐 토큰·흐름을 저장해서 보냅니다.</DialogDescription>
         </DialogHeader>
         {state.state === "sent" ? (
           <>
             <p className="text-sm">
-              {state.agentWaiting ? "보냈습니다. 기다리던 AI가 작업을 시작합니다." : "보냈습니다. AI가 다음에 기다리기를 시작하면 바로 받습니다."}
+              {state.agentWaiting ? "보냈습니다. AI가 바로 시작합니다." : "보냈습니다. AI가 기다리기를 시작하면 받습니다."}
             </p>
             <div className="flex justify-end">
               <Button onClick={() => onOpenChange(false)}>닫기</Button>
@@ -111,12 +112,15 @@ export function SendToAgentDialog({ open, onOpenChange }: { open: boolean; onOpe
           </>
         ) : (
           <>
-            <p className={waiting ? "text-sm text-brand" : "text-sm text-muted-foreground"}>
-              {waiting === null ? "AI 상태를 확인하는 중…" : waiting ? "AI가 기다리고 있습니다." : "지금 기다리는 AI가 없습니다. 보내 두면 AI가 기다리기를 시작할 때 받습니다."}
-            </p>
+            <Tip label={waiting ? "보내면 AI가 바로 시작합니다" : "보내 두면 AI가 기다리기를 시작할 때 받습니다"}>
+              <span tabIndex={-1} className="flex items-center gap-2 self-start text-xs text-muted-foreground">
+                <span aria-hidden className={waiting ? "size-2 rounded-full bg-brand" : "size-2 rounded-full bg-chip"} />
+                {waiting === null ? "확인 중…" : waiting ? "AI 대기 중" : "기다리는 AI 없음"}
+              </span>
+            </Tip>
             <textarea
               aria-label="AI에게 전할 말"
-              placeholder="AI에게 전할 말 (선택). 예: 버튼 문구부터 바꿔 주세요"
+              placeholder="AI에게 전할 말 (선택)"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               maxLength={10_000}
@@ -158,7 +162,7 @@ export function ShareDialog({ open, onOpenChange }: { open: boolean; onOpenChang
       <DialogContent>
         <DialogHeader>
           <DialogTitle>공유 링크</DialogTitle>
-          <DialogDescription>지금 상태의 사본을 링크로 만듭니다. 받은 사람이 고쳐도 원본은 바뀌지 않습니다.</DialogDescription>
+          <DialogDescription>지금 상태의 사본입니다. 받은 사람이 고쳐도 원본은 그대로입니다.</DialogDescription>
         </DialogHeader>
         {link.state === "loading" && <p className="text-sm text-muted-foreground">링크 만드는 중…</p>}
         {link.state === "error" && <p className="text-sm text-destructive">{link.message}</p>}

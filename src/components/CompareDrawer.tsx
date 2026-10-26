@@ -128,7 +128,6 @@ export function CompareDrawer() {
           );
         })}
       </div>
-      {mode === "overlay" && <p className="px-6 pb-3 text-xs text-muted-foreground">슬라이더를 0%로 내리면 기준만, 100%로 올리면 위 화면만 보입니다.</p>}
     </section>
   );
 }

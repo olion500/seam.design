@@ -52,14 +52,14 @@ export function TopBar() {
   return (
     <header className="flex min-h-16 w-full flex-wrap items-center gap-x-6 gap-y-3 border-b bg-white px-6 py-2">
       <div className="flex min-w-0 flex-[1_1_240px] items-center gap-3">
-        <span className="text-base font-extrabold tracking-tight">명세</span>
+        <span className="text-base font-bold">명세</span>
         <span aria-hidden className="h-5 w-px bg-border" />
         <input
           aria-label="프로젝트 이름"
           onKeyDown={blurOnEnter}
           value={name}
           onChange={(e) => ed.renameProject(e.target.value)}
-          className="min-w-0 truncate rounded px-1 text-[15px] font-semibold outline-none focus:bg-muted"
+          className="min-w-0 truncate rounded px-1 text-base font-bold outline-none focus:bg-muted"
           style={{ width: `${Math.max(4, name.length + 2)}ch` }}
         />
         {dirty && (
@@ -106,8 +106,8 @@ export function TopBar() {
             href={`#/${v.id}`}
             aria-current={view === v.id ? "page" : undefined}
             className={cn(
-              "inline-flex h-10 items-center rounded-lg px-4 text-[15px] font-[550] text-muted-foreground",
-              view === v.id && "bg-white font-bold text-foreground shadow-soft",
+              "inline-flex h-10 items-center rounded-lg px-4 text-sm font-medium text-muted-foreground",
+              view === v.id && "bg-white text-foreground shadow-soft",
             )}
           >
             {v.label}

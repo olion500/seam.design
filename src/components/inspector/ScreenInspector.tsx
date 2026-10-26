@@ -38,13 +38,13 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
             onKeyDown={blurOnEnter}
             value={screen.name}
             onChange={(e) => ed.updateScreen(screen.id, { name: e.target.value })}
-            className="-mx-1 rounded px-1 text-xl font-bold tracking-tight outline-none focus:bg-muted"
+            className="-mx-1 rounded px-1 text-xl font-bold outline-none focus:bg-muted"
           />
           {(screen.variant || !!screen.requests?.length) && (
             <div className="flex items-center gap-1.5">
               {screen.variant && <StatusBadge variant>시안 v{screen.variant.version}</StatusBadge>}
               {!screen.variant && <span className="inline-flex h-5 items-center rounded-full bg-change px-2 text-xs font-bold text-white">요청 {screen.requests?.length}</span>}
-              <span className="text-[13px] text-muted-foreground">기준 대비 변경 {changes.length}건</span>
+              <span className="text-xs text-muted-foreground">기준 대비 변경 {changes.length}건</span>
             </div>
           )}
         </div>
@@ -100,7 +100,7 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
       {screen.variant && (
         <Section title="변경 내역">
           {changes.length === 0 ? (
-            <p className="text-sm text-muted-foreground">기준과 같습니다. 아래 요소를 바꾸면 여기에 나옵니다.</p>
+            <p className="text-sm text-muted-foreground">기준과 같음</p>
           ) : (
             <ul className="flex flex-col gap-1 text-sm">
               {changes.map((c) => (
@@ -151,7 +151,7 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
       <Section title="나가는 전이">
         {screen.exitsOutside?.length ? (
           <Tip label={screen.exitsOutside.join(", ")}>
-            <span tabIndex={-1} className="self-start text-[13px] text-muted-foreground underline decoration-dotted underline-offset-4">
+            <span tabIndex={-1} className="self-start text-xs text-muted-foreground underline decoration-dotted underline-offset-4">
               가져오지 않은 화면 {screen.exitsOutside.length}곳으로도 나감
             </span>
           </Tip>
@@ -360,7 +360,7 @@ function AppUrl({ screen }: { screen: Screen }) {
       <Input
         aria-label="앱 주소"
         placeholder="http://localhost:5173/checkout"
-        className={cn("h-9 min-w-0 font-mono text-xs", quietInput)}
+        className={cn("h-9 min-w-0", quietInput)}
         value={url}
         onChange={(e) => setUrl(e.target.value)}
         onBlur={apply}
@@ -483,11 +483,11 @@ function SourcesEditor({ screen, tokens }: { screen: Screen; tokens: string[] })
       title="소스 매핑"
       action={<AddButton label={open ? "닫기" : "소스 파일 추가"} open={open} onClick={() => (open ? cancel() : setDraft({ path: "", note: "" }))} />}
     >
-      <ul className="flex flex-col gap-2 text-[13px]">
+      <ul className="flex flex-col gap-2 text-xs">
         {screen.sources.map((m, i) => (
           <li key={`${m.path}|${m.note}`} className="group flex items-start gap-2 rounded-lg bg-muted px-2.5 py-2">
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <code className="font-mono break-all">{m.path}</code>
+              <span className="break-all">{m.path}</span>
               <span className="text-muted-foreground">{m.note}</span>
             </span>
             <button
@@ -511,7 +511,7 @@ function SourcesEditor({ screen, tokens }: { screen: Screen; tokens: string[] })
               ref={pathRef}
               aria-label="소스 경로"
               placeholder="src/screens/Checkout.tsx"
-              className="bg-transparent font-mono outline-none placeholder:text-muted-foreground/70"
+              className="bg-transparent outline-none placeholder:text-muted-foreground/70"
               value={draft.path}
               onChange={(e) => setDraft({ ...draft, path: e.target.value })}
               onKeyDown={onKey}
@@ -528,7 +528,7 @@ function SourcesEditor({ screen, tokens }: { screen: Screen; tokens: string[] })
         )}
         {tokens.length > 0 && (
           <li className="flex flex-col gap-0.5 rounded-lg bg-muted px-2.5 py-2">
-            <code className="font-mono">{tokens.join(" · ")}</code>
+            <span>{tokens.join(" · ")}</span>
             <span className="text-muted-foreground">쓰는 토큰</span>
           </li>
         )}
@@ -559,7 +559,7 @@ export function HeaderActions({ onDelete, deleteLabel }: { onDelete?: () => void
 
 export function LinkButton({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
   return (
-    <button type="button" onClick={onClick} className="text-sm font-[550] hover:text-brand">
+    <button type="button" onClick={onClick} className="text-sm font-medium hover:text-brand">
       {children}
     </button>
   );

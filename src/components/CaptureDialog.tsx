@@ -40,7 +40,7 @@ export function CaptureDialog({ open, onOpenChange, initialUrl = "", onCaptured 
       <DialogContent>
         <DialogHeader>
           <DialogTitle>URL에서 캡처</DialogTitle>
-          <DialogDescription>서버의 헤드리스 브라우저로 페이지를 열어 기준 스크린샷을 찍습니다.</DialogDescription>
+          <DialogDescription>주소의 화면을 찍어 기준으로 씁니다.</DialogDescription>
         </DialogHeader>
         <form
           className="flex flex-col gap-3"

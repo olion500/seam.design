@@ -25,7 +25,7 @@ export function MotionView() {
   return (
     <main aria-label="모션" className="flex min-w-0 flex-1 gap-8 overflow-y-auto bg-muted px-10 pt-8 pb-12 max-xl:flex-col">
       <section aria-label="모션 프리셋" className="flex w-64 shrink-0 flex-col gap-3 max-xl:w-full">
-        <h2 className="text-2xl font-extrabold">프리셋</h2>
+        <h2 className="text-xl font-bold">프리셋</h2>
         <ul className="flex flex-col gap-2 max-xl:flex-row max-xl:flex-wrap">
           {project.motions.map((m) => {
             const count = project.transitions.filter((t) => t.motionId === m.id).length;
@@ -43,7 +43,7 @@ export function MotionView() {
                   className={cn("flex w-full flex-col gap-0.5 rounded-xl bg-white px-4 py-3 text-left", active && "shadow-[inset_0_0_0_2px_var(--brand)]")}
                 >
                   <b>{m.name}</b>
-                  <span className="text-[13px] text-muted-foreground">
+                  <span className="text-xs text-muted-foreground">
                     {m.durationMs}ms · 전이 {count}
                   </span>
                 </button>
@@ -55,7 +55,7 @@ export function MotionView() {
 
       <section aria-label="전환 재생" className="flex min-w-0 flex-1 flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-2xl font-extrabold">전환 재생</h2>
+          <h2 className="text-xl font-bold">전환 재생</h2>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={reduced} onChange={(e) => setReduced(e.target.checked)} />
             모션 줄이기로 미리 보기

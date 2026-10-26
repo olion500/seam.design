@@ -62,7 +62,7 @@ function Header({ eyebrow, title, sub, onDelete }: { eyebrow: string; title: Rea
     <div className="flex items-start justify-between gap-3 border-b px-6 py-5">
       <div className="flex min-w-0 flex-col gap-2">
         <Eyebrow>{eyebrow}</Eyebrow>
-        <h2 className="text-xl leading-tight font-bold tracking-tight">{title}</h2>
+        <h2 className="text-xl leading-tight font-bold break-all">{title}</h2>
         {sub && <span className="text-sm leading-relaxed text-muted-foreground">{sub}</span>}
       </div>
       <HeaderActions onDelete={onDelete} deleteLabel={`${eyebrow} 삭제`} />
@@ -156,7 +156,7 @@ function TokenInspector({ token }: { token: Token }) {
 
   return (
     <>
-      <Header eyebrow="토큰" title={<code className="font-mono">{token.name}</code>} sub={source ? undefined : token.description} />
+      <Header eyebrow="토큰" title={token.name} sub={source ? undefined : token.description} />
       <Section title="값">
         <div className="flex items-center gap-2">
           {token.kind === "color" && (
@@ -173,7 +173,7 @@ function TokenInspector({ token }: { token: Token }) {
             id="token-value"
             aria-label="토큰 값"
             aria-invalid={invalid}
-            className="h-11 font-mono"
+            className="h-11"
             value={token.value}
             onChange={(e) => ed.updateToken(token.name, e.target.value)}
           />
@@ -196,13 +196,13 @@ function TokenInspector({ token }: { token: Token }) {
       </Section>
       {project.source?.tokens[token.name] && (
         <Section title="소스">
-          <code className="rounded-lg bg-muted px-2.5 py-2 font-mono text-[13px]">
+          <span className="rounded-lg bg-muted px-2.5 py-2 text-xs break-all">
             {project.source.tokens[token.name].path} · {project.source.tokens[token.name].file}:{project.source.tokens[token.name].line}
-          </code>
+          </span>
           {project.source.tokens[token.name].value !== token.value && (
-            <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <span aria-hidden className="size-2 rounded-full bg-change" />
-              코드 값 <code className="font-mono">{project.source.tokens[token.name].value}</code>
+              코드 값 {project.source.tokens[token.name].value}
             </p>
           )}
         </Section>
@@ -222,7 +222,7 @@ function TokenInspector({ token }: { token: Token }) {
               <span className="overflow-hidden rounded-lg">
                 <ScreenView screen={s} mode="variant" width={140} tokens={project.tokens} />
               </span>
-              <span className="text-[13px] font-bold">{s.name}</span>
+              <span className="text-xs font-bold">{s.name}</span>
             </button>
           ))}
         </div>

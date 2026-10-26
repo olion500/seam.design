@@ -138,10 +138,10 @@ function Canvas() {
       maxZoom={2.5}
       className="canvas-dots"
     >
-      <div className="pointer-events-none absolute top-5 left-6 z-10 text-sm font-bold tracking-wider text-muted-foreground">
+      <div className="pointer-events-none absolute top-5 left-6 z-10 text-xs font-medium text-muted-foreground max-md:hidden">
         {project.name} · 화면 {project.screens.length}
       </div>
-      <div className="pointer-events-none absolute top-4 right-4 z-10 flex max-w-[calc(100%-220px)] flex-wrap justify-end gap-2 *:pointer-events-auto">
+      <div className="pointer-events-none absolute top-4 right-4 z-10 flex max-w-[calc(100%-220px)] flex-wrap justify-end gap-2 whitespace-nowrap *:pointer-events-auto max-md:left-4 max-md:max-w-none">
         <RenderPicker />
         <DevicePicker />
         <Tip label="빈 화면 추가">
@@ -176,7 +176,7 @@ function RenderPicker() {
           <button
             type="button"
             aria-label="앱 꺼짐, 다시 확인"
-            className="inline-flex h-8 items-center gap-1.5 rounded-full bg-warn/30 px-3 text-[13px]"
+            className="inline-flex h-8 items-center gap-1.5 rounded-full bg-warn/30 px-3 text-xs"
             onClick={() => void checkLiveApp(liveUrl)}
           >
             <WifiOff className="size-3.5" /> 앱 꺼짐 <RefreshCw className="size-3.5 text-muted-foreground" />
@@ -218,14 +218,14 @@ function DevicePicker() {
     <div className="flex items-center gap-2">
       {stale > 0 && showingShots && (
         <Tip label={`기준 스크린샷 ${stale}개가 다른 기기 크기로 찍혔습니다. ${repo ? "seam capture로 다시 찍으세요." : "이 크기로 다시 올리세요."}`}>
-          <button type="button" className="inline-flex h-8 cursor-default items-center gap-1.5 rounded-full bg-warn/30 px-3 text-[13px]">
+          <button type="button" className="inline-flex h-8 cursor-default items-center gap-1.5 rounded-full bg-warn/30 px-3 text-xs">
             <TriangleAlert className="size-3.5" /> 크기 다름 {stale}
           </button>
         </Tip>
       )}
       <select
         aria-label="기기 크기"
-        className="h-10 rounded-lg border-0 bg-white px-3 text-sm font-[550] shadow-soft outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        className="h-10 rounded-lg border-0 bg-white px-3 text-sm font-medium shadow-soft outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
         value={device}
         onChange={(e) => useEditor.getState().setDevice(e.target.value as DeviceId)}
       >
@@ -258,7 +258,7 @@ function Hints({ comparing }: { comparing: number }) {
           </PopoverTrigger>
         </Tip>
         <PopoverContent side="top" align="start" className="w-auto p-3">
-          <dl className="grid grid-cols-[auto_auto] gap-x-4 gap-y-2 text-[13px]">
+          <dl className="grid grid-cols-[auto_auto] gap-x-4 gap-y-2 text-xs">
             {HINTS.map(([how, what]) => (
               <div key={how} className="contents">
                 <dt className="font-bold">{how}</dt>
@@ -269,7 +269,7 @@ function Hints({ comparing }: { comparing: number }) {
         </PopoverContent>
       </Popover>
       {comparing === 1 && (
-        <span className="inline-flex h-8 items-center rounded-full border bg-white px-3 text-[13px] font-bold text-brand">비교: 화면 하나 더 Shift + 클릭</span>
+        <span className="inline-flex h-8 items-center rounded-full border bg-white px-3 text-xs font-bold text-brand">비교: 화면 하나 더 Shift + 클릭</span>
       )}
     </div>
   );
@@ -283,7 +283,7 @@ function ZoomControls() {
       <Button variant="ghost" size="icon" aria-label="축소" onClick={() => zoomOut()}>
         <Minus />
       </Button>
-      <button type="button" className="min-w-12 text-center text-[13px] font-bold" title="화면에 맞추기" onClick={() => void fitView({ padding: 0.15, maxZoom: 1, duration: 300 })}>
+      <button type="button" className="min-w-12 text-center text-xs font-bold" title="화면에 맞추기" onClick={() => void fitView({ padding: 0.15, maxZoom: 1, duration: 300 })}>
         {Math.round(zoom * 100)}%
       </button>
       <Button variant="ghost" size="icon" aria-label="확대" onClick={() => zoomIn()}>

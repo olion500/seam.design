@@ -27,7 +27,7 @@ export function TransitionEdge({ id, sourceX, sourceY, targetX, targetY, sourceP
       {data?.label && (
         <EdgeLabelRenderer>
           <div
-            className="nodrag nopan pointer-events-none absolute rounded whitespace-nowrap bg-canvas px-1.5 text-[13px] leading-4 text-muted-foreground"
+            className="nodrag nopan pointer-events-none absolute rounded whitespace-nowrap bg-canvas px-1.5 text-xs leading-4 text-muted-foreground"
             style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`, color: selected ? "var(--brand)" : undefined }}
           >
             {data.label}

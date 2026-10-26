@@ -28,7 +28,7 @@ export function RulesView() {
     <main aria-label="규칙" className="flex min-w-0 flex-1 flex-col gap-6 overflow-y-auto bg-muted px-10 pt-8 pb-12">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <h2 className="text-2xl font-extrabold">규칙 {project.rules.length}</h2>
+          <h2 className="text-xl font-bold">규칙 {project.rules.length}</h2>
           <span className="text-sm text-muted-foreground">
             위반 {total}건 · 화면 {project.screens.length}개 검사
           </span>
@@ -51,13 +51,13 @@ export function RulesView() {
                   !rule.enabled && "opacity-60",
                 )}
               >
-                <div className="flex items-center justify-between text-[13px] text-muted-foreground">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span className="font-bold">{rule.category}</span>
                   <span>
                     연결 {scopeLabel} {scope}
                   </span>
                 </div>
-                <h3 className="text-lg font-bold tracking-tight">
+                <h3 className="text-base font-bold">
                   <button
                     type="button"
                     aria-pressed={active}
@@ -71,13 +71,13 @@ export function RulesView() {
                 <div className="flex items-center justify-between gap-2">
                   <span
                     className={cn(
-                      "inline-flex h-7 items-center rounded-full px-3 text-[13px] font-bold",
+                      "inline-flex h-7 items-center rounded-full px-3 text-xs font-bold",
                       !rule.enabled ? "bg-chip" : violations.length ? "bg-warn" : "bg-muted",
                     )}
                   >
                     {!rule.enabled ? "꺼짐" : violations.length ? `위반 ${violations.length} · ${where}` : "모두 통과"}
                   </span>
-                  <label className="relative z-10 flex items-center gap-1.5 text-[13px]">
+                  <label className="relative z-10 flex items-center gap-1.5 text-xs">
                     <input type="checkbox" checked={rule.enabled} onChange={(e) => updateRule(rule.id, { enabled: e.target.checked })} />
                     사용
                   </label>
@@ -92,7 +92,7 @@ export function RulesView() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>규칙 추가</DialogTitle>
-            <DialogDescription>검사 방식을 고르면 지금 프로젝트에 바로 적용됩니다.</DialogDescription>
+            <DialogDescription>고르면 바로 적용됩니다.</DialogDescription>
           </DialogHeader>
           <ul className="flex flex-col gap-2">
             {TEMPLATES.map((t) => (

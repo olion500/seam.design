@@ -34,7 +34,7 @@ export function Section({ title, action, children, className }: { title: string;
   return (
     <section className={cn("flex flex-col gap-3 border-b px-6 py-5 last:border-b-0", className)}>
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-base font-bold tracking-tight">{title}</h3>
+        <h3 className="text-sm font-bold">{title}</h3>
         {action}
       </div>
       {children}
@@ -43,7 +43,7 @@ export function Section({ title, action, children, className }: { title: string;
 }
 
 export function Eyebrow({ children }: { children: ReactNode }) {
-  return <span className="text-sm font-bold tracking-wider text-muted-foreground">{children}</span>;
+  return <span className="text-xs font-medium text-muted-foreground">{children}</span>;
 }
 
 const propLabel = "text-xs font-medium text-muted-foreground";

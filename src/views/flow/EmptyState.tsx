@@ -11,7 +11,7 @@ export function EmptyState() {
     <div className="canvas-dots flex h-full items-center justify-center p-6">
       <div className="flex max-w-sm flex-col items-center gap-4 rounded-xl bg-white p-8 text-center shadow-pop">
         <h2 className="text-xl font-bold">첫 화면을 추가하세요</h2>
-        <p className="text-sm leading-relaxed text-muted-foreground">화면을 놓고, 화면 속 요소를 다른 화면으로 끌어 흐름을 만듭니다.</p>
+        <p className="text-sm leading-relaxed text-muted-foreground">요소를 다른 화면으로 끌면 흐름이 생깁니다.</p>
         <Button size="lg" onClick={() => useEditor.getState().addScreen({ position: { x: 0, y: 0 } })}>
           <SquarePlus /> 화면 추가
         </Button>

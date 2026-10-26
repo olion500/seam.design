@@ -33,7 +33,7 @@ export function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-3 p-4">
+      <DialogContent showCloseButton={false} className="gap-3 p-4">
         <DialogTitle className="sr-only">검색</DialogTitle>
         <Input
           autoFocus

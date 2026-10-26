@@ -59,8 +59,8 @@ function ScreenNodeImpl({ data, selected }: NodeProps<ScreenNodeType>) {
         <Handle key={h.id} type={h.type} id={h.id} position={h.position} isConnectable={h.type === "source"} className="side-handle" style={h.style} />
       ))}
       <div className="flex h-5 min-w-0 items-center gap-1.5 text-xs">
-        <span className={cn("max-w-[75%] shrink-0 truncate font-semibold", selected ? "text-brand" : "text-muted-foreground")}>{screen.name}</span>
-        {screen.route && <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground/70">{screen.route}</span>}
+        <span className={cn("max-w-[75%] shrink-0 truncate font-medium", selected ? "text-brand" : "text-muted-foreground")}>{screen.name}</span>
+        {screen.route && <span className="min-w-0 truncate text-muted-foreground/70">{screen.route}</span>}
         <span className="ml-auto flex shrink-0 gap-1">
           {hasVariant && <StatusBadge variant>시안</StatusBadge>}
           {requests > 0 && <span className="inline-flex h-5 items-center rounded-full bg-change px-2 text-xs font-bold text-white">요청 {requests}</span>}

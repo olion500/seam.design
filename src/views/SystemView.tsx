@@ -33,29 +33,31 @@ export function SystemView() {
           ["#tokens", `토큰 ${project.tokens.length}`],
           ...(imported ? [] : [["#components", `컴포넌트 ${VARIANTS.length}`]]),
           ["#assets", `에셋 ${project.assets.length}`],
-        ].map(([href, label], i) => (
-          <a
+        ].map(([href, label]) => (
+          // In-page jumps: a "#tokens" link would replace the "#/system" route and leave the view.
+          <button
             key={href}
-            href={href}
-            className={cn("inline-flex h-9 items-center rounded-full px-3.5 text-sm font-[550]", i === 0 ? "bg-black text-white" : "bg-white")}
+            type="button"
+            onClick={() => document.getElementById(href.slice(1))?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            className="inline-flex h-9 items-center rounded-full bg-white px-3.5 text-sm font-medium hover:bg-chip"
           >
             {label}
-          </a>
+          </button>
         ))}
       </nav>
 
       <section id="tokens" className="flex flex-col gap-4">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="text-2xl font-extrabold">토큰</h2>
+          <h2 className="text-xl font-bold">토큰</h2>
         </div>
         <div className="overflow-x-auto bg-white">
           <table className="w-full min-w-[560px] border-collapse text-sm">
             <thead>
               <tr className="text-left text-muted-foreground">
-                <th scope="col" className="border-b px-4 py-3 font-[550]">이름</th>
-                <th scope="col" className="border-b px-4 py-3 font-[550]">값</th>
-                <th scope="col" className="border-b px-4 py-3 font-[550]">종류</th>
-                <th scope="col" className="border-b px-4 py-3 text-right font-[550]">{imported ? "소스" : "쓰는 화면"}</th>
+                <th scope="col" className="border-b px-4 py-3 font-medium">이름</th>
+                <th scope="col" className="border-b px-4 py-3 font-medium">값</th>
+                <th scope="col" className="border-b px-4 py-3 font-medium">종류</th>
+                <th scope="col" className="border-b px-4 py-3 text-right font-medium">{imported ? "소스" : "쓰는 화면"}</th>
               </tr>
             </thead>
             <tbody>
@@ -71,7 +73,7 @@ export function SystemView() {
                     className={cn("cursor-pointer hover:bg-muted/50", active && "bg-brand/8 shadow-[inset_2px_0_0_var(--brand)]")}
                   >
                     <td className="border-b px-4 py-3">
-                      <code className={cn("font-mono text-[13px]", active && "font-bold")}>{t.name}</code>
+                      <span className={cn("text-sm", active && "font-bold")}>{t.name}</span>
                     </td>
                     <td className="border-b px-4 py-3">
                       <span className="inline-flex items-center gap-2">
@@ -82,9 +84,9 @@ export function SystemView() {
                     <td className="border-b px-4 py-3">{KIND[t.kind]}</td>
                     <td className={cn("border-b px-4 py-3 text-right", active && "font-bold")}>
                       {imported ? (
-                        <code className="font-mono text-[13px] text-muted-foreground">
+                        <span className="text-xs text-muted-foreground">
                           {sourceOf(t.name) ? `${sourceOf(t.name)?.file}:${sourceOf(t.name)?.line}` : "-"}
-                        </code>
+                        </span>
                       ) : (
                         usage(t.name)
                       )}
@@ -100,7 +102,7 @@ export function SystemView() {
       {!imported && (
       <section id="components" className="flex flex-col gap-4">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="text-2xl font-extrabold">컴포넌트 변형</h2>
+          <h2 className="text-xl font-bold">컴포넌트 변형</h2>
           <span className="text-sm text-muted-foreground">Button · 변형 4 × 상태 3</span>
         </div>
         <div className="grid grid-cols-4 gap-4 overflow-x-auto max-xl:grid-cols-2" style={tokenVars(project.tokens)}>
@@ -109,7 +111,7 @@ export function SystemView() {
               key={v.variant}
               className={cn("flex min-w-[140px] flex-col gap-3 bg-white px-4 py-5", v.variant === "accent" && "bg-brand/8 shadow-[inset_0_0_0_2px_var(--brand)]")}
             >
-              <span className="flex items-center justify-between text-[13px] font-bold">
+              <span className="flex items-center justify-between text-xs font-bold">
                 {v.title}
                 {!usedVariants.has(v.variant) && <span className="font-normal text-muted-foreground">미사용</span>}
               </span>
@@ -126,14 +128,14 @@ export function SystemView() {
       )}
 
       <section id="assets" className="flex flex-col gap-4">
-        <h2 className="text-2xl font-extrabold">에셋</h2>
+        <h2 className="text-xl font-bold">에셋</h2>
         <ul className="grid grid-cols-4 gap-3 max-xl:grid-cols-2">
           {project.assets.map((a) => (
             <li key={a.name} className="flex min-w-0 items-center gap-3 rounded-xl bg-white p-3">
               <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
                 {a.kind === "아이콘" ? <Shapes className="size-5" /> : a.kind === "로고" ? <Type className="size-5" /> : <Image className="size-5" />}
               </span>
-              <span className="flex min-w-0 flex-col text-[13px]">
+              <span className="flex min-w-0 flex-col text-xs">
                 <b className="truncate">{a.name}</b>
                 <span className="text-muted-foreground">
                   {a.kind} · {a.screenIds.length}화면
