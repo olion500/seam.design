@@ -30,7 +30,7 @@ seam.design/
 | 편집기 상태/액션 추가 | `src/store/store.ts` | 모든 변경은 `useEditor` 액션으로. undo는 zundo `temporal` |
 | 저장·동기화 동작 | `src/store/persist.ts` | IndexedDB 먼저, 이후 서버 또는 레포. 1.2초 디바운스 자동 저장 |
 | 새 보기(탭) | `src/App.tsx`, `src/model/types.ts`(`View`) | 해시 라우팅 `#/flow` 등, 흐름 외 보기는 `lazy` |
-| 캔버스 노드/엣지 | `src/views/flow/` | `ScreenNode`, `TransitionEdge`, hover 미리 보기 `preview.ts` |
+| 캔버스 노드/엣지 | `src/views/flow/` | `ScreenNode`(휴대폰 틀 + 위쪽 이름), `TransitionEdge`, 노드 더블클릭 = 그 화면으로 확대 |
 | 검사기 패널 | `src/components/inspector/` | 가장 큰 파일들(373, 430줄) |
 | API 엔드포인트 | `server/app.ts` | `createApp`은 의존성 주입(store, capture) -> 테스트에서 가짜 주입 |
 | SQLite 스키마 | `server/db.ts` | projects, shares 두 테이블, JSON 통째 저장 |

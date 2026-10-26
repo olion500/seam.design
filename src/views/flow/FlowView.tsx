@@ -22,7 +22,6 @@ import { useRuleState } from "@/store/derived";
 import { useEditor } from "@/store/store";
 import { uploadScreenshot } from "@/store/actions";
 import { EmptyState } from "./EmptyState";
-import { closePreview, hoverNode, leaveNode } from "./preview";
 import { ScreenNode, edgeHandles, type ScreenNodeType } from "./ScreenNode";
 import { TransitionEdge, type TransitionEdgeType } from "./TransitionEdge";
 
@@ -32,6 +31,7 @@ const edgeTypes = { transition: TransitionEdge };
 const elementHandle = (id?: string | null) => (id && !id.startsWith("s-") ? id : undefined);
 
 function Canvas() {
+  const { fitView } = useReactFlow();
   const project = useEditor((s) => s.project);
   const selection = useEditor((s) => s.selection);
   const compareIds = useEditor((s) => s.compareIds);
@@ -112,11 +112,11 @@ function Canvas() {
       nodeTypes={nodeTypes}
       edgeTypes={edgeTypes}
       onNodesChange={onChange}
-      onNodeDragStart={closePreview}
       onNodeDragStop={(_, node) => moveScreen(node.id, node.position)}
-      onNodeMouseEnter={(_, node) => hoverNode(node.id)}
-      onNodeMouseLeave={leaveNode}
-      onMoveStart={closePreview}
+      onNodeDoubleClick={(_, node) =>
+        void fitView({ nodes: [{ id: node.id }], padding: { top: "72px", bottom: "20px", x: "5%" }, maxZoom: 2.5, duration: 300 })
+      }
+      zoomOnDoubleClick={false}
       onNodeClick={(e, node) => {
         if (e.shiftKey) toggleCompare(node.id);
         else select({ kind: "screen", id: node.id });
@@ -133,7 +133,7 @@ function Canvas() {
       fitView
       fitViewOptions={{ padding: 0.15, maxZoom: 1 }}
       minZoom={0.25}
-      maxZoom={2}
+      maxZoom={2.5}
       className="canvas-dots"
     >
       <div className="pointer-events-none absolute top-5 left-6 z-10 text-sm font-bold tracking-wider text-muted-foreground">
@@ -228,12 +228,15 @@ function DevicePicker() {
 }
 
 function Hints({ comparing }: { comparing: number }) {
+  const { zoom } = useViewport();
+  if (zoom > 1.2) return null;
   return (
     <div className="absolute bottom-4 left-4 z-10 flex max-w-[calc(100%-200px)] flex-wrap gap-2">
       <span className="inline-flex h-8 items-center gap-2 rounded-full border bg-white px-3 text-[13px]">
         <kbd className="rounded bg-chip px-1.5 text-xs font-bold">Shift</kbd>+클릭으로 화면 비교
         {comparing === 1 && <b className="text-brand">· 1개 선택됨, 하나 더</b>}
       </span>
+      <span className="inline-flex h-8 items-center rounded-full border bg-white px-3 text-[13px]">더블클릭으로 크게 보기 · 확대율을 누르면 전체 보기</span>
       <span className="inline-flex h-8 items-center rounded-full border bg-white px-3 text-[13px]">화면 속 요소를 다른 노드로 끌면 전이 생성</span>
     </div>
   );
@@ -247,7 +250,7 @@ function ZoomControls() {
       <Button variant="ghost" size="icon" aria-label="축소" onClick={() => zoomOut()}>
         <Minus />
       </Button>
-      <button type="button" className="min-w-12 text-center text-[13px] font-bold" title="화면에 맞추기" onClick={() => fitView({ padding: 0.15 })}>
+      <button type="button" className="min-w-12 text-center text-[13px] font-bold" title="화면에 맞추기" onClick={() => void fitView({ padding: 0.15, maxZoom: 1, duration: 300 })}>
         {Math.round(zoom * 100)}%
       </button>
       <Button variant="ghost" size="icon" aria-label="확대" onClick={() => zoomIn()}>

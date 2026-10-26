@@ -128,7 +128,3 @@
 .react-flow__node-screen {
   cursor: pointer;
 }
-
-.react-flow:has(.react-flow__node-toolbar) .react-flow__renderer {
-  z-index: 20;
-}

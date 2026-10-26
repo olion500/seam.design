@@ -1,5 +1,5 @@
-import { memo, useState } from "react";
-import { Handle, NodeToolbar, Position, type Node, type NodeProps } from "@xyflow/react";
+import { memo } from "react";
+import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 import { LiveFrame } from "@/components/LiveFrame";
 import { ScreenView } from "@/components/ScreenView";
 import { StatusBadge, WarnIcon } from "@/components/bits";
@@ -8,10 +8,8 @@ import { screenChanges } from "@/model/diff";
 import { liveStatus, useLiveApp } from "@/lib/liveApp";
 import { useEditor } from "@/store/store";
 import { cn } from "@/lib/utils";
-import { keepPreview, leaveNode, usePreview } from "./preview";
 
 const NODE_SCALE = 0.4;
-const PREVIEW_SCALE = 0.52;
 const INTERACTIVE = new Set(["button", "listItem", "text", "field"]);
 
 const SIDE_HANDLES = [
@@ -38,13 +36,10 @@ function ScreenNodeImpl({ data, selected }: NodeProps<ScreenNodeType>) {
   const screen = useEditor((s) => s.project.screens.find((x) => x.id === data.screenId));
   const tokens = useEditor((s) => s.project.tokens);
   const focusChange = useEditor((s) => s.focusChange);
-  const hover = usePreview((s) => s.id === data.screenId);
   const liveMode = useEditor((s) => s.project.render === "live");
   const appUp = useLiveApp((s) => liveStatus(s, screen?.live?.url) === "up");
   const showLive = liveMode && appUp && !!screen?.live;
   const device = deviceOf(useEditor((s) => s.project.device));
-  const [previewChoice, setPreviewMode] = useState<"baseline" | "variant" | "live" | null>(null);
-  const previewMode = previewChoice ?? (showLive ? "live" : "baseline");
 
   if (!screen) return null;
   const changes = screenChanges(screen);
@@ -54,12 +49,11 @@ function ScreenNodeImpl({ data, selected }: NodeProps<ScreenNodeType>) {
   const frame = showLive ? { w: device.width, h: device.height } : screen.size;
   const thumbW = Math.round(frame.w * NODE_SCALE);
   const thumbH = Math.round((frame.h * thumbW) / frame.w);
-  const previewW = Math.round(frame.w * PREVIEW_SCALE);
 
   const requests = screen.requests?.length ?? 0;
 
   return (
-    <div className={cn("relative flex flex-col gap-1.5 transition-transform", hover && "-translate-y-0.5")} style={{ width: thumbW }}>
+    <div className={"relative flex flex-col gap-1.5 transition-transform hover:-translate-y-0.5"} style={{ width: thumbW }}>
       {SIDE_HANDLES.map((h) => (
         <Handle key={h.id} type={h.type} id={h.id} position={h.position} isConnectable={h.type === "source"} className="side-handle" style={h.style} />
       ))}
@@ -107,55 +101,6 @@ function ScreenNodeImpl({ data, selected }: NodeProps<ScreenNodeType>) {
       </div>
       {data.warnings.length > 0 && <WarnIcon title={data.warnings.join("\n")} className="absolute top-4 -right-2.5" />}
 
-      <NodeToolbar
-        isVisible={hover}
-        position={Position.Right}
-        offset={16}
-        onMouseEnter={keepPreview}
-        onMouseLeave={leaveNode}
-        aria-label={`${screen.name} 미리 보기`}
-        style={{ zIndex: 40 }}
-      >
-        <div className="flex flex-col gap-2.5 rounded-xl bg-white p-3 shadow-pop" style={{ width: previewW + 24 }}>
-          <div className="flex items-baseline justify-between">
-            <span className="text-sm font-bold">{screen.name}</span>
-            <span className="text-xs text-muted-foreground">미리 보기</span>
-          </div>
-          <fieldset aria-label="기준 또는 시안 보기" className={cn("grid gap-1 rounded-lg bg-muted p-1", screen.live ? "grid-cols-3" : "grid-cols-2")}>
-            {(["baseline", "variant", ...(screen.live ? (["live"] as const) : [])] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                aria-pressed={previewMode === m}
-                disabled={m === "variant" && !hasVariant}
-                onClick={() => setPreviewMode(m)}
-                className={cn(
-                  "h-9 rounded-md text-sm text-muted-foreground disabled:opacity-40",
-                  previewMode === m && "bg-white font-bold text-foreground shadow-soft",
-                )}
-              >
-                {m === "baseline" ? "기준" : m === "variant" ? "시안" : "라이브"}
-              </button>
-            ))}
-          </fieldset>
-          {previewMode === "live" && screen.live ? (
-            <LiveFrame screen={screen} url={screen.live.url} width={previewW} />
-          ) : (
-            <div className="overflow-hidden rounded-md">
-              <ScreenView screen={screen} mode={previewMode === "live" ? "variant" : previewMode} width={Math.round(screen.size.w * PREVIEW_SCALE)} tokens={tokens} />
-            </div>
-          )}
-          <span className="text-xs text-muted-foreground">
-            {previewMode === "live" && screen.live
-              ? screen.live.url
-              : previewMode === "variant" && screen.variant
-              ? `시안 v${screen.variant.version} · ${screen.variant.updatedAt}`
-              : screen.baseline
-                ? `기준 · ${screen.baseline.capturedAt ?? ""}`
-                : "기준 이미지 없음"}
-          </span>
-        </div>
-      </NodeToolbar>
     </div>
   );
 }
