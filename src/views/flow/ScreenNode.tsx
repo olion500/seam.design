@@ -56,20 +56,29 @@ function ScreenNodeImpl({ data, selected }: NodeProps<ScreenNodeType>) {
   const thumbH = Math.round((frame.h * thumbW) / frame.w);
   const previewW = Math.round(frame.w * PREVIEW_SCALE);
 
+  const requests = screen.requests?.length ?? 0;
+
   return (
-    <div
-      className={cn(
-        "relative flex flex-col gap-2 rounded-lg border bg-white p-2 shadow-soft transition-transform",
-        selected && "border-2 border-brand p-[7px] shadow-[0_0_0_4px_rgb(0_133_228/0.16)]",
-        data.comparing && !selected && "border-primary",
-        hover && "-translate-y-0.5",
-      )}
-      style={{ width: thumbW + 16 }}
-    >
+    <div className={cn("relative flex flex-col gap-1.5 transition-transform", hover && "-translate-y-0.5")} style={{ width: thumbW }}>
       {SIDE_HANDLES.map((h) => (
         <Handle key={h.id} type={h.type} id={h.id} position={h.position} isConnectable={h.type === "source"} className="side-handle" style={h.style} />
       ))}
-      <div className="relative overflow-hidden rounded bg-muted" style={{ width: thumbW, height: thumbH }}>
+      <div className="flex h-5 min-w-0 items-center gap-1.5 text-xs">
+        <span className={cn("max-w-[75%] shrink-0 truncate font-semibold", selected ? "text-brand" : "text-muted-foreground")}>{screen.name}</span>
+        {screen.route && <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground/70">{screen.route}</span>}
+        <span className="ml-auto flex shrink-0 gap-1">
+          {hasVariant && <StatusBadge variant>시안</StatusBadge>}
+          {requests > 0 && <span className="inline-flex h-5 items-center rounded-full bg-change px-2 text-xs font-bold text-white">요청 {requests}</span>}
+        </span>
+      </div>
+      <div
+        className={cn(
+          "relative overflow-hidden rounded-[14px] border bg-muted shadow-soft",
+          selected && "outline-2 outline-offset-2 outline-brand",
+          data.comparing && !selected && "outline-2 outline-offset-2 outline-primary",
+        )}
+        style={{ width: thumbW, height: thumbH }}
+      >
         {showLive && screen.live && (
           <div className="absolute inset-0 z-[1]">
             <LiveFrame screen={screen} url={screen.live.url} width={thumbW} compact interactive={false} />
@@ -96,11 +105,7 @@ function ScreenNodeImpl({ data, selected }: NodeProps<ScreenNodeType>) {
           }
         />
       </div>
-      <div className="flex h-6 items-center justify-between gap-1.5">
-        <span className="truncate text-[13px] font-bold">{screen.name}</span>
-        <StatusBadge variant={hasVariant} />
-      </div>
-      {data.warnings.length > 0 && <WarnIcon title={data.warnings.join("\n")} className="absolute -top-2.5 -right-2.5" />}
+      {data.warnings.length > 0 && <WarnIcon title={data.warnings.join("\n")} className="absolute top-4 -right-2.5" />}
 
       <NodeToolbar
         isVisible={hover}
