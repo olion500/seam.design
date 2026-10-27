@@ -129,10 +129,15 @@ describe("seam CLI round trip", () => {
     const p = await readProject(root);
     const home = p.transitions.find((t) => t.from === "HOME")!;
     p.transitions.push({ ...home, to: "HOME", from: "PREP1", label: "사용자가 더한 전이" });
+    p.screens[0].area = "추출";
+    p.areaLayouts = { 추출: { positions: { HOME: { x: 1, y: 2 } }, routes: {} } };
     await writeProject(root, p);
     await seam(root, "import");
 
-    const ids = (await readProject(root)).transitions.map((t) => t.id);
+    const again = await readProject(root);
+    expect(again.screens[0].area).toBe("추출");
+    expect(again.areaLayouts).toEqual(p.areaLayouts);
+    const ids = again.transitions.map((t) => t.id);
     expect(ids).toHaveLength(3);
     expect(new Set(ids).size).toBe(3);
     expect(ids[0]).toBe(home.id);

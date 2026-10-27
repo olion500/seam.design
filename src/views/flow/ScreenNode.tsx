@@ -14,7 +14,7 @@ const NODE_SCALE = 0.4;
 const SCREEN_RADIUS = 6;
 const INTERACTIVE = new Set(["button", "listItem", "text", "field"]);
 
-const SIDE_HANDLES = [
+export const SIDE_HANDLES = [
   { id: "s-right", type: "source", position: Position.Right, style: { top: "45%" } },
   { id: "t-left", type: "target", position: Position.Left, style: { top: "45%" } },
   { id: "s-left", type: "source", position: Position.Left, style: { top: "55%" } },

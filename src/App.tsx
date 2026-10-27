@@ -12,21 +12,28 @@ const RulesView = lazy(() => import("@/views/RulesView").then((m) => ({ default:
 const MotionView = lazy(() => import("@/views/MotionView").then((m) => ({ default: m.MotionView })));
 
 const VIEWS: View[] = ["flow", "system", "rules", "motion"];
-const viewFromHash = (): View => {
-  const v = location.hash.replace("#/", "") as View;
-  return VIEWS.includes(v) ? v : "flow";
+/** `#/<view>`, or `#/flow/<area>` for one feature area's flow page. */
+const fromHash = (): { view: View; area: string | null } => {
+  const [v, area] = location.hash.replace("#/", "").split("/") as [View, string | undefined];
+  const view = VIEWS.includes(v) ? v : "flow";
+  return { view, area: v === "flow" && area ? decodeURIComponent(area) : null };
 };
+const toHash = (view: View, area: string | null) => `#/${view}${view === "flow" && area ? `/${encodeURIComponent(area)}` : ""}`;
 
 function useHashView() {
   useEffect(() => {
     const sync = () => {
-      const v = viewFromHash();
-      if (useEditor.getState().view !== v) useEditor.getState().setView(v);
+      const { view, area } = fromHash();
+      const s = useEditor.getState();
+      if (s.view !== view) s.setView(view);
+      if (view === "flow" && s.areaPage !== area) s.setAreaPage(area);
     };
     sync();
     window.addEventListener("hashchange", sync);
     const unsub = useEditor.subscribe((s, prev) => {
-      if (s.view !== prev.view && viewFromHash() !== s.view) location.hash = `#/${s.view}`;
+      if (s.view === prev.view && s.areaPage === prev.areaPage) return;
+      const now = fromHash();
+      if (now.view !== s.view || (s.view === "flow" && now.area !== s.areaPage)) location.hash = toHash(s.view, s.areaPage);
     });
     return () => {
       window.removeEventListener("hashchange", sync);

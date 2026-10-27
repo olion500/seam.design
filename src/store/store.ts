@@ -33,9 +33,12 @@ export interface EditorState {
   liveScreen: string | null;
   /** Feature area boxes on the canvas; auto-arrange keeps areas together only while they are shown. */
   showAreas: boolean;
+  /** The feature area whose own flow page is open; null shows every screen. */
+  areaPage: string | null;
 
   setView: (view: View) => void;
   setShowAreas: (show: boolean) => void;
+  setAreaPage: (area: string | null) => void;
   select: (selection: Selection | null) => void;
   toggleCompare: (screenId: string) => void;
   clearCompare: () => void;
@@ -51,9 +54,13 @@ export interface EditorState {
 
   addScreen: (input?: { name?: string; image?: string; url?: string; position?: { x: number; y: number } }) => string;
   updateScreen: (id: string, patch: Partial<Pick<Screen, "name" | "terminal" | "states" | "position" | "area">>) => void;
-  moveScreen: (id: string, position: { x: number; y: number }) => void;
-  /** Applies an auto-arrange result as one undo step: new screen positions plus the routes laid out for them. */
-  arrange: (positions: Record<string, Point>, routes: Record<string, TransitionRoute>) => void;
+  /** Moves a screen on the full flow, or on an area's own page (exit markers included) when `area` is given. */
+  moveScreen: (id: string, position: { x: number; y: number }, area?: string) => void;
+  /**
+   * Applies an auto-arrange result as one undo step: new screen positions plus the routes laid out for them. With an
+   * `area` it replaces that area page's layout and leaves the full flow alone.
+   */
+  arrange: (positions: Record<string, Point>, routes: Record<string, TransitionRoute>, area?: string) => void;
   setBaselineImage: (id: string, image: string, url?: string) => void;
   setLiveUrl: (id: string, url: string | undefined) => void;
   createVariant: (id: string) => void;
@@ -86,12 +93,14 @@ export const useEditor = create<EditorState>()(
       focusChange: null,
       liveScreen: null,
       showAreas: localStorage.getItem("seam:showAreas") !== "0",
+      areaPage: null,
 
       setView: (view) => set({ view, selection: null }),
       setShowAreas: (showAreas) => {
         localStorage.setItem("seam:showAreas", showAreas ? "1" : "0");
         set({ showAreas });
       },
+      setAreaPage: (areaPage) => set({ areaPage, liveScreen: null }),
       select: (selection) => set({ selection, focusChange: null }),
       toggleCompare: (screenId) =>
         set((s) => {
@@ -133,6 +142,8 @@ export const useEditor = create<EditorState>()(
             variant: null,
             states: ["기본"],
             sources: [],
+            // A screen added on an area's page belongs to that area, or it would vanish from the page.
+            ...(s.areaPage && { area: s.areaPage }),
           });
           s.selection = { kind: "screen", id };
         });
@@ -143,13 +154,23 @@ export const useEditor = create<EditorState>()(
           const screen = s.project.screens.find((x) => x.id === id);
           if (screen) Object.assign(screen, patch);
         }),
-      moveScreen: (id, position) =>
+      moveScreen: (id, position, area) =>
         set((s) => {
+          if (area) {
+            s.project.areaLayouts ??= {};
+            s.project.areaLayouts[area] ??= { positions: {}, routes: {} };
+            s.project.areaLayouts[area].positions[id] = position;
+            return;
+          }
           const screen = s.project.screens.find((x) => x.id === id);
           if (screen) screen.position = position;
         }),
-      arrange: (positions, routes) =>
+      arrange: (positions, routes, area) =>
         set((s) => {
+          if (area) {
+            s.project.areaLayouts = { ...s.project.areaLayouts, [area]: { positions, routes } };
+            return;
+          }
           for (const screen of s.project.screens) if (positions[screen.id]) screen.position = positions[screen.id];
           for (const t of s.project.transitions) {
             if (routes[t.id]) t.route = routes[t.id];

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -23,18 +23,30 @@ import { checkLiveApp, liveStatus, useLiveApp } from "@/lib/liveApp";
 import { cn } from "@/lib/utils";
 import { useSync } from "@/store/persist";
 import { useRuleState } from "@/store/derived";
-import { useEditor } from "@/store/store";
+import { type EditorState, useEditor } from "@/store/store";
 import { lineLabel, transitionLines } from "@/model/lines";
-import { AREA_PAD, screenAreas } from "@/model/areas";
+import { AREA_PAD, exitScreenId, flowPage, screenAreas } from "@/model/areas";
 import { uploadScreenshot } from "@/store/actions";
 import { AreaNode, type AreaNodeType } from "./AreaNode";
 import { EmptyState } from "./EmptyState";
+import { ExitNode, type ExitNodeType } from "./ExitNode";
 import { ScreenNode, edgeHandles, isSideHandle, type ScreenNodeType } from "./ScreenNode";
 import { TransitionEdge, type TransitionEdgeType } from "./TransitionEdge";
 
-const nodeTypes = { screen: ScreenNode, area: AreaNode };
+const nodeTypes = { screen: ScreenNode, area: AreaNode, exit: ExitNode };
 
-type FlowNode = ScreenNodeType | AreaNodeType;
+type PageNode = ScreenNodeType | ExitNodeType;
+type FlowNode = PageNode | AreaNodeType;
+
+/** The area page that is open, or null for the full flow (also when the area is gone, e.g. renamed). */
+const openPage = (s: EditorState) => (s.areaPage && [...screenAreas(s.project.screens).values()].includes(s.areaPage) ? s.areaPage : null);
+
+/** Opens the page a screen lives on (its area, or the full flow) with that screen selected. */
+function goToScreen(screenId: string) {
+  const { project, setAreaPage, select } = useEditor.getState();
+  setAreaPage(screenAreas(project.screens).get(screenId) ?? null);
+  select({ kind: "screen", id: screenId });
+}
 const edgeTypes = { transition: TransitionEdge };
 
 const elementHandle = (id?: string | null) => (id && !isSideHandle(id) ? id : undefined);
@@ -47,18 +59,29 @@ function Canvas() {
   const compareIds = useEditor((s) => s.compareIds);
   const { select, toggleCompare, moveScreen, addTransition } = useEditor.getState();
   const { warnings } = useRuleState();
-  const [nodes, setNodes, onNodesChange] = useNodesState<ScreenNodeType>([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<PageNode>([]);
+  const page = useEditor(openPage);
+  const flow = useMemo(() => flowPage(project, page), [project, page]);
 
   useEffect(() => {
-    setNodes(
-      project.screens.map((s) => {
+    const areaOf = screenAreas(project.screens);
+    const exits: ExitNodeType[] = flow.exits.map((e) => ({
+      id: e.id,
+      type: "exit",
+      position: flow.positions[e.id],
+      selectable: false,
+      ariaLabel: `${project.screens.find((s) => s.id === e.screenId)?.name ?? "끊어진 연결"} 화면으로 가기`,
+      data: { name: project.screens.find((s) => s.id === e.screenId)?.name ?? "끊어진 연결", area: areaOf.get(e.screenId), dir: e.dir },
+    }));
+    setNodes([
+      ...flow.screens.map((s): ScreenNodeType => {
         const selected = selection?.kind === "screen" && selection.id === s.id;
         const nodeWarnings = warnings.byScreen.get(s.id) ?? [];
         const changes = screenChanges(s).length;
         return {
           id: s.id,
           type: "screen",
-          position: s.position,
+          position: flow.positions[s.id],
           selected,
           ariaLabel: [
             `${s.name} 화면`,
@@ -72,15 +95,30 @@ function Canvas() {
           data: { screenId: s.id, warnings: nodeWarnings, comparing: compareIds.includes(s.id) },
         };
       }),
-    );
-  }, [project.screens, selection, warnings, compareIds, setNodes]);
+      ...exits,
+    ]);
+  }, [flow, project.screens, selection, warnings, compareIds, setNodes]);
+
+  // Fit each page once its nodes are on the canvas; an area page that was never laid out gets auto-arranged first.
+  const { run: arrangePage } = useArrange();
+  const fitted = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (fitted.current === page) return;
+    const ids = new Set([...flow.screens.map((s) => s.id), ...flow.exits.map((e) => e.id)]);
+    const ready = nodes.length === ids.size && nodes.every((n) => ids.has(n.id) && n.measured?.width);
+    if (!ready) return;
+    fitted.current = page;
+    const unplaced = page && nodes.some((n) => !project.areaLayouts?.[page]?.positions[n.id]);
+    if (unplaced) void arrangePage();
+    else void fitView({ padding: 0.15, maxZoom: 1, duration: 300 });
+  }, [page, flow, nodes, project.areaLayouts, arrangePage, fitView]);
 
   // Area boxes are worked out from where the screens are right now, so they follow a screen being dragged.
   const showAreas = useEditor((s) => s.showAreas);
   const areaNodes = useMemo<AreaNodeType[]>(() => {
-    if (!showAreas) return [];
+    if (!showAreas || page) return [];
     const areaOf = screenAreas(project.screens);
-    const members = new Map<string, ScreenNodeType[]>();
+    const members = new Map<string, PageNode[]>();
     for (const n of nodes) {
       const area = areaOf.get(n.id);
       if (area && n.measured?.width) members.set(area, [...(members.get(area) ?? []), n]);
@@ -104,23 +142,24 @@ function Canvas() {
         style: { pointerEvents: "none" },
       };
     });
-  }, [nodes, project.screens, showAreas]);
+  }, [nodes, project.screens, showAreas, page]);
 
   const edges = useMemo<TransitionEdgeType[]>(() => {
-    return transitionLines(project.transitions).map((group) => {
+    return transitionLines(flow.transitions).map((group) => {
         const t = group[0];
-        const from = project.screens.find((s) => s.id === t.from);
-        const to = project.screens.find((s) => s.id === t.to);
+        const from = flow.positions[t.from];
+        const to = flow.positions[t.to];
         const selected = selection?.kind === "transition" && group.some((x) => x.id === selection.id);
         const label = lineLabel(group);
-        // An arranged route only fits while both screens are still where auto-arrange put them.
-        const arranged = t.route && from && to && samePoint(t.route.from, from.position) && samePoint(t.route.to, to.position) ? t.route : undefined;
+        // An arranged route only fits while both ends are still where auto-arrange put them.
+        const route = flow.routes[t.id];
+        const arranged = route && from && to && samePoint(route.from, from) && samePoint(route.to, to) ? route : undefined;
         return {
           id: t.id,
           type: "transition",
           source: t.from,
           target: t.to,
-          ...edgeHandles(from?.position ?? { x: 0, y: 0 }, to?.position ?? { x: 0, y: 0 }),
+          ...edgeHandles(from ?? { x: 0, y: 0 }, to ?? { x: 0, y: 0 }),
           selected,
           markerEnd: { type: MarkerType.ArrowClosed, color: selected ? "#0085E4" : "#666666", width: 16, height: 16 },
           data: {
@@ -132,27 +171,27 @@ function Canvas() {
           },
         };
       });
-  }, [project.transitions, project.screens, selection, warnings]);
+  }, [flow, selection, warnings]);
 
   const onChange = useCallback(
     (changes: NodeChange<FlowNode>[]) =>
       onNodesChange(
-        changes.filter((c): c is NodeChange<ScreenNodeType> => (c.type === "position" || c.type === "dimensions") && !c.id.startsWith("area:")),
+        changes.filter((c): c is NodeChange<PageNode> => (c.type === "position" || c.type === "dimensions") && !c.id.startsWith("area:")),
       ),
     [onNodesChange],
   );
 
   const onConnect: OnConnect = (c) => {
     if (!c.source || !c.target || c.source === c.target) return;
-    addTransition({ from: c.source, to: c.target, sourceElementId: elementHandle(c.sourceHandle) });
+    addTransition({ from: c.source, to: exitScreenId(c.target), sourceElementId: elementHandle(c.sourceHandle) });
   };
 
   const onConnectEnd: OnConnectEnd = (event, state) => {
     if (state.isValid || !state.fromNode) return;
     const point = "changedTouches" in event ? event.changedTouches[0] : event;
     const target = document.elementFromPoint(point.clientX, point.clientY)?.closest(".react-flow__node")?.getAttribute("data-id");
-    if (!target || target === state.fromNode.id) return;
-    addTransition({ from: state.fromNode.id, to: target, sourceElementId: elementHandle(state.fromHandle?.id) });
+    if (!target || target === state.fromNode.id || target.startsWith("area:")) return;
+    addTransition({ from: state.fromNode.id, to: exitScreenId(target), sourceElementId: elementHandle(state.fromHandle?.id) });
   };
 
   return (
@@ -162,8 +201,9 @@ function Canvas() {
       nodeTypes={nodeTypes}
       edgeTypes={edgeTypes}
       onNodesChange={onChange}
-      onNodeDragStop={(_, node) => moveScreen(node.id, node.position)}
+      onNodeDragStop={(_, node) => moveScreen(node.id, node.position, page ?? undefined)}
       onNodeDoubleClick={(_, node) => {
+        if (node.type !== "screen") return;
         // Zooming in on a screen shows it as the running app, so it can be scrolled and tapped.
         const url = project.screens.find((s) => s.id === node.id)?.live?.url;
         if (url) void checkLiveApp(url);
@@ -172,6 +212,8 @@ function Canvas() {
       }}
       zoomOnDoubleClick={false}
       onNodeClick={(e, node) => {
+        if (node.type === "exit") goToScreen(exitScreenId(node.id));
+        if (node.type !== "screen") return;
         if (e.shiftKey) toggleCompare(node.id);
         else select({ kind: "screen", id: node.id });
       }}
@@ -193,9 +235,7 @@ function Canvas() {
       maxZoom={2.5}
       className="canvas-dots"
     >
-      <div className="pointer-events-none absolute top-5 left-6 z-10 text-xs font-medium text-muted-foreground max-md:hidden">
-        {project.name} · 화면 {project.screens.length}
-      </div>
+      <PageTabs page={page} />
       <div className="pointer-events-none absolute top-4 right-4 z-10 flex max-w-[calc(100%-220px)] flex-wrap justify-end gap-2 whitespace-nowrap *:pointer-events-auto max-md:left-4 max-md:max-w-none">
         <LiveNotice />
         <DevicePicker />
@@ -222,7 +262,8 @@ function Canvas() {
 function AreasButton() {
   const show = useEditor((s) => s.showAreas);
   const hasAreas = useEditor((s) => screenAreas(s.project.screens).size > 0);
-  if (!hasAreas) return null;
+  const onAreaPage = useEditor((s) => openPage(s) !== null);
+  if (!hasAreas || onAreaPage) return null;
   return (
     <Tip label={show ? "영역 숨기기 · 자동 정렬도 영역을 무시" : "영역 보기 · 자동 정렬도 영역끼리 모음"}>
       <Button
@@ -249,33 +290,71 @@ function labelSize(text: string) {
   return { text, width: Math.ceil(measureCtx.measureText(text).width) + 12, height: 16 };
 }
 
-function ArrangeButton() {
+/** Auto-arranges the open page: the full flow (by area while areas are shown) or one area's page and its exits. */
+function useArrange() {
   const { getNodes, fitView } = useReactFlow();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const run = async () => {
+  const run = useCallback(async () => {
     setBusy(true);
     setError(null);
     try {
       const { autoLayout } = await import("@/lib/autoLayout");
-      const { project, arrange } = useEditor.getState();
-      const areaOf = useEditor.getState().showAreas ? screenAreas(project.screens) : new Map<string, string>();
+      const state = useEditor.getState();
+      const page = openPage(state);
+      const flow = flowPage(state.project, page);
+      const areaOf = state.showAreas && !page ? screenAreas(state.project.screens) : new Map<string, string>();
       const nodes = getNodes()
-        .filter((n) => n.type === "screen")
+        .filter((n) => n.type === "screen" || n.type === "exit")
         .map((n) => ({ id: n.id, width: n.measured?.width ?? 0, height: n.measured?.height ?? 0, area: areaOf.get(n.id) }));
-      const edges = transitionLines(project.transitions).flatMap((line) => {
+      const edges = transitionLines(flow.transitions).flatMap((line) => {
         const label = lineLabel(line);
         return line.map((t) => ({ id: t.id, from: t.from, to: t.to, label: label ? labelSize(label) : undefined }));
       });
       const layout = await autoLayout(nodes, edges);
-      arrange(layout.positions, layout.routes);
+      state.arrange(layout.positions, layout.routes, page ?? undefined);
       requestAnimationFrame(() => void fitView({ padding: 0.15, maxZoom: 1, duration: 300 }));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
     }
-  };
+  }, [getNodes, fitView]);
+  return { run, busy, error };
+}
+
+/** The full flow and one page per feature area; each tab is a link, so pages work with back and forward. */
+function PageTabs({ page }: { page: string | null }) {
+  const screens = useEditor((s) => s.project.screens);
+  const counts = new Map<string, number>();
+  for (const area of screenAreas(screens).values()) counts.set(area, (counts.get(area) ?? 0) + 1);
+  const tab = (href: string, label: string, count: number, active: boolean) => (
+    <a
+      key={href}
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-3 text-sm font-medium text-muted-foreground hover:text-foreground",
+        active && "bg-muted text-foreground",
+      )}
+    >
+      {label}
+      <span className="text-xs text-muted-foreground">{count}</span>
+    </a>
+  );
+  return (
+    <nav
+      aria-label="흐름 페이지"
+      className="absolute top-4 left-4 z-10 flex max-w-[calc(100%-560px)] gap-1 overflow-x-auto rounded-lg bg-white p-1 shadow-soft max-md:top-16 max-md:right-4 max-md:max-w-none"
+    >
+      {tab("#/flow", "전체", screens.length, !page)}
+      {[...counts].map(([area, n]) => tab(`#/flow/${encodeURIComponent(area)}`, area, n, page === area))}
+    </nav>
+  );
+}
+
+function ArrangeButton() {
+  const { run, busy, error } = useArrange();
   return (
     <Tip label={error ? `자동 정렬 실패: ${error}` : "자동 정렬 · 선이 덜 꼬이게 다시 배치"}>
       <Button

@@ -111,6 +111,12 @@ export interface TransitionRoute {
   to: Point;
 }
 
+/** One feature area's own flow page, laid out apart from the full flow. Keys are screen ids and exit marker ids. */
+export interface AreaLayout {
+  positions: Record<string, Point>;
+  routes: Record<string, TransitionRoute>;
+}
+
 export interface Transition {
   id: string;
   route?: TransitionRoute;
@@ -167,6 +173,8 @@ export interface Project {
   assets: Asset[];
   source?: ProjectSource;
   device?: DeviceId;
+  /** Layouts of the per-area flow pages, by area name. */
+  areaLayouts?: Record<string, AreaLayout>;
 }
 
 export interface TokenSource {
