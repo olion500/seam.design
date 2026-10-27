@@ -127,6 +127,19 @@ describe("seam CLI round trip", () => {
     expect(pendingChanges(p)).toEqual([]);
   });
 
+  it("gives every transition its own id when an earlier import left a clash", async () => {
+    const p = await readProject(root);
+    const home = p.transitions.find((t) => t.from === "HOME")!;
+    p.transitions.push({ ...home, to: "HOME", from: "PREP1", label: "사용자가 더한 전이" });
+    await writeProject(root, p);
+    await seam(root, "import");
+
+    const ids = (await readProject(root)).transitions.map((t) => t.id);
+    expect(ids).toHaveLength(3);
+    expect(new Set(ids).size).toBe(3);
+    expect(ids[0]).toBe(home.id);
+  });
+
   it("imports states without a URL from screens.states, with the route's file as source and no live URL", async () => {
     const configFile = join(root, ".seam/seam.json");
     const config = await Bun.file(configFile).json();

@@ -128,6 +128,18 @@ export function buildProject({ config, routes, nodes, edges, tokens, tokenFile, 
   const importedKeys = new Set(imported.map(transitionKey));
   const sourceKeys = new Set(previous?.source?.transitions ?? []);
   const userAdded = (previous?.transitions ?? []).filter((t) => !importedKeys.has(transitionKey(t)) && !sourceKeys.has(transitionKey(t)));
+  // New edges are numbered by position, so they can collide with ids kept from an earlier import; the first keeps its id.
+  const used = new Set<string>();
+  let next = 1;
+  const transitions = [...imported, ...userAdded].map((t) => {
+    if (!used.has(t.id)) {
+      used.add(t.id);
+      return t;
+    }
+    while (used.has(`f${next}`) || [...imported, ...userAdded].some((x) => x.id === `f${next}`)) next++;
+    used.add(`f${next}`);
+    return { ...t, id: `f${next}` };
+  });
 
   const prevTokens = new Map(previous?.tokens.map((t) => [t.name, t.value]));
   const prevSource = previous?.source?.tokens ?? {};
@@ -141,7 +153,7 @@ export function buildProject({ config, routes, nodes, edges, tokens, tokenFile, 
     id: previous?.id ?? crypto.randomUUID().slice(0, 8),
     name: previous?.name ?? config.name,
     screens,
-    transitions: [...imported, ...userAdded],
+    transitions,
     tokens: projectTokens,
     motions: previous?.motions ?? seed.motions,
     rules: previous?.rules ?? seed.rules.filter((r) => r.check === "no-dead-end" || r.check === "reduced-motion"),
