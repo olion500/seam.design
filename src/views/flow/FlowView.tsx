@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 import { useSync } from "@/store/persist";
 import { useRuleState } from "@/store/derived";
 import { useEditor } from "@/store/store";
-import type { Transition } from "@/model/types";
+import { lineLabel, transitionLines } from "@/model/lines";
 import { uploadScreenshot } from "@/store/actions";
 import { EmptyState } from "./EmptyState";
 import { ScreenNode, edgeHandles, isSideHandle, type ScreenNodeType } from "./ScreenNode";
@@ -72,17 +72,14 @@ function Canvas() {
   }, [project.screens, selection, warnings, compareIds, setNodes]);
 
   const edges = useMemo<TransitionEdgeType[]>(() => {
-    // Transitions between the same two screens in the same direction are drawn as one line, named after the first.
-    const groups = new Map<string, Transition[]>();
-    for (const t of project.transitions) groups.set(`${t.from}>${t.to}`, [...(groups.get(`${t.from}>${t.to}`) ?? []), t]);
-    return [...groups.values()].map((group) => {
+    return transitionLines(project.transitions).map((group) => {
         const t = group[0];
         const from = project.screens.find((s) => s.id === t.from);
         const to = project.screens.find((s) => s.id === t.to);
         const selected = selection?.kind === "transition" && group.some((x) => x.id === selection.id);
-        const label = group.length > 1 ? `${t.label} +${group.length - 1}` : t.label;
+        const label = lineLabel(group);
         // An arranged route only fits while both screens are still where auto-arrange put them.
-        const route = t.route && from && to && samePoint(t.route.from, from.position) && samePoint(t.route.to, to.position) ? t.route.points : undefined;
+        const arranged = t.route && from && to && samePoint(t.route.from, from.position) && samePoint(t.route.to, to.position) ? t.route : undefined;
         return {
           id: t.id,
           type: "transition",
@@ -95,7 +92,8 @@ function Canvas() {
             label,
             conditional: group.every((x) => x.conditional),
             broken: group.some((x) => warnings.brokenTransitions.has(x.id)),
-            route,
+            route: arranged?.points,
+            labelAt: arranged?.label,
           },
         };
       });
@@ -181,6 +179,16 @@ function Canvas() {
   );
 }
 
+let measureCtx: CanvasRenderingContext2D | null = null;
+
+/** The on-canvas size of an edge label (text-xs, px-1.5, leading-4), so the layout can leave room for it. */
+function labelSize(text: string) {
+  measureCtx ??= document.createElement("canvas").getContext("2d");
+  if (!measureCtx) return { text, width: text.length * 12 + 12, height: 16 };
+  measureCtx.font = `12px ${getComputedStyle(document.body).fontFamily}`;
+  return { text, width: Math.ceil(measureCtx.measureText(text).width) + 12, height: 16 };
+}
+
 function ArrangeButton() {
   const { getNodes, fitView } = useReactFlow();
   const [busy, setBusy] = useState(false);
@@ -192,7 +200,11 @@ function ArrangeButton() {
       const { autoLayout } = await import("@/lib/autoLayout");
       const { project, arrange } = useEditor.getState();
       const nodes = getNodes().map((n) => ({ id: n.id, width: n.measured?.width ?? 0, height: n.measured?.height ?? 0 }));
-      const layout = await autoLayout(nodes, project.transitions);
+      const edges = transitionLines(project.transitions).flatMap((line) => {
+        const label = lineLabel(line);
+        return line.map((t) => ({ id: t.id, from: t.from, to: t.to, label: label ? labelSize(label) : undefined }));
+      });
+      const layout = await autoLayout(nodes, edges);
       arrange(layout.positions, layout.routes);
       requestAnimationFrame(() => void fitView({ padding: 0.15, maxZoom: 1, duration: 300 }));
     } catch (e) {

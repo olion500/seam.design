@@ -1,7 +1,7 @@
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, type Edge, type EdgeProps } from "@xyflow/react";
 import type { Point } from "@/model/types";
 
-export type TransitionEdgeType = Edge<{ label: string; conditional: boolean; broken: boolean; route?: Point[] }, "transition">;
+export type TransitionEdgeType = Edge<{ label: string; conditional: boolean; broken: boolean; route?: Point[]; labelAt?: Point }, "transition">;
 
 const CORNER = 10;
 
@@ -32,10 +32,12 @@ export function routePath(points: Point[]): [string, number, number] {
 }
 
 export function TransitionEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, selected, markerEnd }: EdgeProps<TransitionEdgeType>) {
-  const [path, labelX, labelY] =
+  const [path, midX, midY] =
     data?.route && data.route.length > 1
       ? routePath(data.route)
       : getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
+  // Auto-arrange leaves room for the label; elsewhere it sits in the middle of the line.
+  const [labelX, labelY] = data?.route && data.labelAt ? [data.labelAt.x, data.labelAt.y] : [midX, midY];
   const color = selected ? "var(--brand)" : data?.broken ? "var(--warn)" : "#666";
   return (
     <>

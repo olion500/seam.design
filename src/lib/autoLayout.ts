@@ -12,6 +12,8 @@ export interface LayoutEdge {
   id: string;
   from: string;
   to: string;
+  /** Size of the line's label; the first transition of a line decides it. */
+  label?: { text: string; width: number; height: number };
 }
 
 export interface Layout {
@@ -85,7 +87,12 @@ async function bestLayout(elk: ELK, nodes: LayoutNode[], edges: LayoutEdge[]): P
       id: "root",
       layoutOptions: { ...OPTIONS, "elk.randomSeed": String(seed) },
       children: nodes.map((n) => ({ id: n.id, width: n.width, height: n.height })),
-      edges: [...byLead.values()].map(([e]) => ({ id: e.id, sources: [e.from], targets: [e.to] })),
+      edges: [...byLead.values()].map(([e]) => ({
+        id: e.id,
+        sources: [e.from],
+        targets: [e.to],
+        labels: e.label ? [{ id: `${e.id}:label`, ...e.label }] : undefined,
+      })),
     });
     const positions = Object.fromEntries((graph.children ?? []).map((c) => [c.id, { x: c.x ?? 0, y: c.y ?? 0 }]));
     const routes: Record<string, TransitionRoute> = {};
@@ -94,7 +101,9 @@ async function bestLayout(elk: ELK, nodes: LayoutNode[], edges: LayoutEdge[]): P
       const group = byLead.get(e.id);
       if (!section || !group) continue;
       const points = [section.startPoint, ...(section.bendPoints ?? []), section.endPoint];
-      for (const t of group) routes[t.id] = { points, from: positions[t.from], to: positions[t.to] };
+      const l = e.labels?.[0];
+      const label = l ? { x: (l.x ?? 0) + (l.width ?? 0) / 2, y: (l.y ?? 0) + (l.height ?? 0) / 2 } : undefined;
+      for (const t of group) routes[t.id] = { points, ...(label && { label }), from: positions[t.from], to: positions[t.to] };
     }
     const crossings = countCrossings([...byLead.keys()].flatMap((id) => (routes[id] ? [routes[id].points] : [])));
     if (!best || crossings < best.crossings) best = { positions, routes, crossings };

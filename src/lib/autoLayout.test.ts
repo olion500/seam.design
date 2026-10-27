@@ -45,6 +45,21 @@ describe("autoLayout", () => {
   });
 });
 
+describe("autoLayout labels", () => {
+  it("leaves room for each line's label, off every screen", async () => {
+    const labelled = edges.map((e) => ({ ...e, label: { text: `전이 ${e.id}`, width: 60, height: 16 } }));
+    const { positions, routes } = await autoLayout(nodes, labelled, new ELK());
+    for (const id of ["a", "b", "c", "d", "e", "f", "g", "h"]) {
+      const l = routes[id].label!;
+      expect(l).toBeDefined();
+      for (const n of Object.values(positions)) {
+        const apart = l.x + 30 <= n.x || l.x - 30 >= n.x + W || l.y + 8 <= n.y || l.y - 8 >= n.y + H;
+        expect(apart).toBe(true);
+      }
+    }
+  });
+});
+
 describe("countCrossings", () => {
   it("counts each point where two routes cross, and not routes that only meet at an end", () => {
     const cross = [

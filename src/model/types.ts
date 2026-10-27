@@ -103,6 +103,8 @@ export interface Point {
  */
 export interface TransitionRoute {
   points: Point[];
+  /** Centre of the space the layout left for the line's label. */
+  label?: Point;
   from: Point;
   to: Point;
 }
