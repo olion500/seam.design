@@ -88,6 +88,8 @@ export interface Screen {
   terminal?: boolean;
   live?: { url: string };
   route?: string;
+  /** Feature area set by hand; without it the area comes from the route (see `screenAreas`). */
+  area?: string;
   requests?: ChangeRequest[];
   exitsOutside?: string[];
 }

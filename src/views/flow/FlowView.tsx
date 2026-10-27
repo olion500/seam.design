@@ -25,12 +25,16 @@ import { useSync } from "@/store/persist";
 import { useRuleState } from "@/store/derived";
 import { useEditor } from "@/store/store";
 import { lineLabel, transitionLines } from "@/model/lines";
+import { AREA_PAD, screenAreas } from "@/model/areas";
 import { uploadScreenshot } from "@/store/actions";
+import { AreaNode, type AreaNodeType } from "./AreaNode";
 import { EmptyState } from "./EmptyState";
 import { ScreenNode, edgeHandles, isSideHandle, type ScreenNodeType } from "./ScreenNode";
 import { TransitionEdge, type TransitionEdgeType } from "./TransitionEdge";
 
-const nodeTypes = { screen: ScreenNode };
+const nodeTypes = { screen: ScreenNode, area: AreaNode };
+
+type FlowNode = ScreenNodeType | AreaNodeType;
 const edgeTypes = { transition: TransitionEdge };
 
 const elementHandle = (id?: string | null) => (id && !isSideHandle(id) ? id : undefined);
@@ -71,6 +75,35 @@ function Canvas() {
     );
   }, [project.screens, selection, warnings, compareIds, setNodes]);
 
+  // Area boxes are worked out from where the screens are right now, so they follow a screen being dragged.
+  const areaNodes = useMemo<AreaNodeType[]>(() => {
+    const areaOf = screenAreas(project.screens);
+    const members = new Map<string, ScreenNodeType[]>();
+    for (const n of nodes) {
+      const area = areaOf.get(n.id);
+      if (area && n.measured?.width) members.set(area, [...(members.get(area) ?? []), n]);
+    }
+    return [...members].map(([name, ms]) => {
+      const x = Math.min(...ms.map((n) => n.position.x)) - AREA_PAD.side;
+      const y = Math.min(...ms.map((n) => n.position.y)) - AREA_PAD.top;
+      const right = Math.max(...ms.map((n) => n.position.x + (n.measured?.width ?? 0))) + AREA_PAD.side;
+      const bottom = Math.max(...ms.map((n) => n.position.y + (n.measured?.height ?? 0))) + AREA_PAD.side;
+      return {
+        id: `area:${name}`,
+        type: "area",
+        position: { x, y },
+        width: right - x,
+        height: bottom - y,
+        data: { name },
+        draggable: false,
+        selectable: false,
+        focusable: false,
+        zIndex: -1,
+        style: { pointerEvents: "none" },
+      };
+    });
+  }, [nodes, project.screens]);
+
   const edges = useMemo<TransitionEdgeType[]>(() => {
     return transitionLines(project.transitions).map((group) => {
         const t = group[0];
@@ -100,7 +133,10 @@ function Canvas() {
   }, [project.transitions, project.screens, selection, warnings]);
 
   const onChange = useCallback(
-    (changes: NodeChange<ScreenNodeType>[]) => onNodesChange(changes.filter((c) => c.type === "position" || c.type === "dimensions")),
+    (changes: NodeChange<FlowNode>[]) =>
+      onNodesChange(
+        changes.filter((c): c is NodeChange<ScreenNodeType> => (c.type === "position" || c.type === "dimensions") && !c.id.startsWith("area:")),
+      ),
     [onNodesChange],
   );
 
@@ -119,7 +155,7 @@ function Canvas() {
 
   return (
     <ReactFlow
-      nodes={nodes}
+      nodes={[...areaNodes, ...nodes] as FlowNode[]}
       edges={edges}
       nodeTypes={nodeTypes}
       edgeTypes={edgeTypes}
@@ -199,7 +235,10 @@ function ArrangeButton() {
     try {
       const { autoLayout } = await import("@/lib/autoLayout");
       const { project, arrange } = useEditor.getState();
-      const nodes = getNodes().map((n) => ({ id: n.id, width: n.measured?.width ?? 0, height: n.measured?.height ?? 0 }));
+      const areaOf = screenAreas(project.screens);
+      const nodes = getNodes()
+        .filter((n) => n.type === "screen")
+        .map((n) => ({ id: n.id, width: n.measured?.width ?? 0, height: n.measured?.height ?? 0, area: areaOf.get(n.id) }));
       const edges = transitionLines(project.transitions).flatMap((line) => {
         const label = lineLabel(line);
         return line.map((t) => ({ id: t.id, from: t.from, to: t.to, label: label ? labelSize(label) : undefined }));

@@ -1,11 +1,14 @@
 import ElkApi, { type ELK, type ElkNode } from "elkjs/lib/elk-api.js";
 import elkWorkerUrl from "elkjs/lib/elk-worker.min.js?url";
+import { AREA_PAD } from "@/model/areas";
 import type { Point, TransitionRoute } from "@/model/types";
 
 export interface LayoutNode {
   id: string;
   width: number;
   height: number;
+  /** Screens of one feature area are kept together inside a box. */
+  area?: string;
 }
 
 export interface LayoutEdge {
@@ -36,7 +39,13 @@ const OPTIONS = {
   "elk.spacing.edgeEdge": "14",
   "elk.layered.spacing.nodeNodeBetweenLayers": "140",
   "elk.layered.spacing.edgeNodeBetweenLayers": "30",
+  // Areas are nested boxes; lay them out with their screens as one graph and report everything in canvas coordinates.
+  "elk.hierarchyHandling": "INCLUDE_CHILDREN",
+  "elk.json.shapeCoords": "ROOT",
+  "elk.json.edgeCoords": "ROOT",
 };
+
+const AREA_OPTIONS = { "elk.padding": `[top=${AREA_PAD.top},left=${AREA_PAD.side},bottom=${AREA_PAD.side},right=${AREA_PAD.side}]` };
 
 const TRIES = 10;
 
@@ -81,12 +90,19 @@ async function bestLayout(elk: ELK, nodes: LayoutNode[], edges: LayoutEdge[]): P
     lines.set(key, [...(lines.get(key) ?? []), e]);
   }
   const byLead = new Map([...lines.values()].map((g) => [g[0].id, g]));
+  const areas = new Map<string, LayoutNode[]>();
+  for (const n of nodes) if (n.area) areas.set(n.area, [...(areas.get(n.area) ?? []), n]);
+  const shape = (n: LayoutNode): ElkNode => ({ id: n.id, width: n.width, height: n.height });
+  const children: ElkNode[] = [
+    ...nodes.filter((n) => !n.area).map(shape),
+    ...[...areas].map(([name, members]) => ({ id: `area:${name}`, layoutOptions: AREA_OPTIONS, children: members.map(shape) })),
+  ];
   let best: Layout | null = null;
   for (let seed = 1; seed <= TRIES; seed++) {
     const graph: ElkNode = await elk.layout({
       id: "root",
       layoutOptions: { ...OPTIONS, "elk.randomSeed": String(seed) },
-      children: nodes.map((n) => ({ id: n.id, width: n.width, height: n.height })),
+      children,
       edges: [...byLead.values()].map(([e]) => ({
         id: e.id,
         sources: [e.from],
@@ -94,7 +110,8 @@ async function bestLayout(elk: ELK, nodes: LayoutNode[], edges: LayoutEdge[]): P
         labels: e.label ? [{ id: `${e.id}:label`, ...e.label }] : undefined,
       })),
     });
-    const positions = Object.fromEntries((graph.children ?? []).map((c) => [c.id, { x: c.x ?? 0, y: c.y ?? 0 }]));
+    const placed = (graph.children ?? []).flatMap((c) => (c.id.startsWith("area:") ? (c.children ?? []) : [c]));
+    const positions = Object.fromEntries(placed.map((c) => [c.id, { x: c.x ?? 0, y: c.y ?? 0 }]));
     const routes: Record<string, TransitionRoute> = {};
     for (const e of graph.edges ?? []) {
       const section = e.sections?.[0];

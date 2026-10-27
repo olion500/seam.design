@@ -47,7 +47,7 @@ export interface EditorState {
   setDevice: (device: DeviceId) => void;
 
   addScreen: (input?: { name?: string; image?: string; url?: string; position?: { x: number; y: number } }) => string;
-  updateScreen: (id: string, patch: Partial<Pick<Screen, "name" | "terminal" | "states" | "position">>) => void;
+  updateScreen: (id: string, patch: Partial<Pick<Screen, "name" | "terminal" | "states" | "position" | "area">>) => void;
   moveScreen: (id: string, position: { x: number; y: number }) => void;
   /** Applies an auto-arrange result as one undo step: new screen positions plus the routes laid out for them. */
   arrange: (positions: Record<string, Point>, routes: Record<string, TransitionRoute>) => void;

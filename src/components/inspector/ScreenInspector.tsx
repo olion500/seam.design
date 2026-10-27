@@ -5,6 +5,7 @@ import { ScreenView } from "@/components/ScreenView";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AddButton, Eyebrow, Field, Prop, Section, StatusBadge, Tip, Toggle, blurOnEnter, quietInput, selectClass } from "@/components/bits";
+import { screenAreas } from "@/model/areas";
 import { deviceOf } from "@/model/devices";
 import { screenChanges } from "@/model/diff";
 import { tokensInSpec } from "@/model/tokens";
@@ -71,6 +72,15 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
             </span>
           </Prop>
         </div>
+        <Field label="영역">
+          <Input
+            className={cn("h-9", quietInput)}
+            onKeyDown={blurOnEnter}
+            placeholder={screenAreas(project.screens.map((s) => (s.id === screen.id ? { ...s, area: undefined } : s))).get(screen.id) ?? "없음"}
+            value={screen.area ?? ""}
+            onChange={(e) => ed.updateScreen(screen.id, { area: e.target.value.trim() ? e.target.value : undefined })}
+          />
+        </Field>
         {!imported && (
           <Prop label="시안">
             {screen.variant ? (
