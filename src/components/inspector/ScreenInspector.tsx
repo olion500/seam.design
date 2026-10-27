@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Check, ExternalLink, Globe, ImagePlus, MousePointerClick, Trash2, TriangleAlert, X } from "lucide-react";
+import { ArrowRight, Check, ExternalLink, Globe, ImagePlus, MousePointerClick, SquareDashed, Trash2, TriangleAlert, X } from "lucide-react";
 import { CaptureDialog } from "@/components/CaptureDialog";
 import { ScreenView } from "@/components/ScreenView";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { AddButton, Eyebrow, Field, Prop, Section, StatusBadge, Tip, Toggle, blu
 import { deviceOf } from "@/model/devices";
 import { screenChanges } from "@/model/diff";
 import { tokensInSpec } from "@/model/tokens";
-import type { ButtonVariant, CapturedElement, Screen, ScreenElement, ScreenSpec } from "@/model/types";
+import type { Box, ButtonVariant, CapturedElement, Screen, ScreenElement, ScreenSpec } from "@/model/types";
 import { imageSrc } from "@/lib/api";
 import { uploadBaseline } from "@/store/actions";
 import { useRuleState } from "@/store/derived";
@@ -198,36 +198,46 @@ function RequestEditor({ screen }: { screen: Screen }) {
     if (composing) noteRef.current?.focus();
   }, [composing]);
   const [elementKey, setElementKey] = useState("");
+  const [area, setArea] = useState<Box | null>(null);
   const [label, setLabel] = useState("");
   const [note, setNote] = useState("");
   const requests = screen.requests ?? [];
-  const name = (key?: string) => elements.find((e) => e.key === key)?.label ?? "화면 전체";
+  const name = (r: { elementKey?: string; area?: Box }) => elements.find((e) => e.key === r.elementKey)?.label ?? (r.area ? "고른 영역" : "화면 전체");
   const picked = elements.find((e) => e.key === elementKey);
   const canAdd = !!label.trim() || !!note.trim();
 
   const close = () => {
     setComposing(false);
     setElementKey("");
+    setArea(null);
     setLabel("");
     setNote("");
   };
   const pick = (key: string) => {
     setElementKey(key);
+    setArea(null);
     if (key) setComposing(true);
+  };
+  const pickArea = (box: Box) => {
+    setArea(box);
+    setElementKey("");
+    setLabel("");
+    setComposing(true);
+    noteRef.current?.focus();
   };
   const submit = () => {
     if (!canAdd) return;
-    ed.addRequest(screen.id, { elementKey: elementKey || undefined, label: label.trim() || undefined, note: note.trim() });
+    ed.addRequest(screen.id, { elementKey: elementKey || undefined, area: area ?? undefined, label: label.trim() || undefined, note: note.trim() });
     close();
   };
 
   return (
     <Section
       title={`변경 요청 ${requests.length}`}
-      action={<AddButton label={composing ? "닫기" : "요청 추가 · 화면에서 요소를 눌러도 됩니다"} open={composing} onClick={() => (composing ? close() : setComposing(true))} />}
+      action={<AddButton label={composing ? "닫기" : "요청 추가 · 화면에서 요소를 누르거나 영역을 끌어도 됩니다"} open={composing} onClick={() => (composing ? close() : setComposing(true))} />}
     >
       {screen.baseline?.image ? (
-        <PickShot screen={screen} picked={elementKey} onPick={pick} />
+        <PickShot screen={screen} picked={elementKey} area={area} onPick={pick} onArea={pickArea} />
       ) : (
         <div className="overflow-hidden rounded-lg border">
           <ScreenView screen={screen} mode="baseline" width={200} tokens={tokens} focusId={elementKey || null} />
@@ -256,8 +266,18 @@ function RequestEditor({ screen }: { screen: Screen }) {
                   </button>
                 </Tip>
               </>
+            ) : area ? (
+              <>
+                <SquareDashed className="size-4 shrink-0 text-brand" />
+                <b className="min-w-0 flex-1">고른 영역</b>
+                <Tip label="화면 전체로">
+                  <button type="button" aria-label="영역 선택 해제" className="text-muted-foreground hover:text-foreground" onClick={() => setArea(null)}>
+                    <X className="size-4" />
+                  </button>
+                </Tip>
+              </>
             ) : (
-              <Tip label="위 화면에서 요소를 누르면 그 요소만 고릅니다">
+              <Tip label="위 화면에서 요소를 누르거나 영역을 끌면 그곳만 고릅니다">
                 <span tabIndex={-1} className="flex items-center gap-1.5 text-muted-foreground">
                   <MousePointerClick className="size-4" /> 화면 전체
                 </span>
@@ -292,7 +312,7 @@ function RequestEditor({ screen }: { screen: Screen }) {
             <li key={r.id} className="group flex items-start gap-2 rounded-lg bg-muted px-2.5 py-2">
               <span aria-hidden className="mt-1.5 size-2 shrink-0 rounded-full bg-change" />
               <span className="flex-1">
-                <b>{name(r.elementKey)}</b>
+                <b>{name(r)}</b>
                 {r.label && ` → “${r.label}”`}
                 {r.note && <span className="block text-muted-foreground">{r.note}</span>}
               </span>
@@ -315,15 +335,69 @@ function RequestEditor({ screen }: { screen: Screen }) {
 const PICK_WIDTH = 200;
 const ROLE_NAMES: Record<string, string> = { button: "버튼", link: "링크", heading: "제목", textbox: "입력칸", img: "이미지", text: "글자", tab: "탭", radio: "선택지", checkbox: "체크박스" };
 
-/** Baseline screenshot whose captured elements can be clicked to pick one. Smaller boxes sit on top of their containers. */
-function PickShot({ screen, picked, onPick }: { screen: Screen; picked: string; onPick: (key: string) => void }) {
+/** Smallest drag, in shot pixels, that counts as drawing an area rather than a click. */
+const DRAG_MIN = 6;
+
+/**
+ * Baseline screenshot whose captured elements can be clicked to pick one, or dragged across to draw an area.
+ * Smaller boxes sit on top of their containers.
+ */
+function PickShot({ screen, picked, area, onPick, onArea }: { screen: Screen; picked: string; area: Box | null; onPick: (key: string) => void; onArea: (box: Box) => void }) {
   const scale = PICK_WIDTH / screen.size.w;
-  const box = (e: CapturedElement) => ({ left: e.box.x * scale, top: e.box.y * scale, width: e.box.w * scale, height: e.box.h * scale });
+  const frame = useRef<HTMLDivElement>(null);
+  const [drawing, setDrawing] = useState<Box | null>(null);
+  // A finished drag must not also count as a click on the element under the pointer.
+  const dragged = useRef(false);
+  const css = (b: Box) => ({ left: b.x * scale, top: b.y * scale, width: b.w * scale, height: b.h * scale });
+  const box = (e: CapturedElement) => css(e.box);
   const elements = (screen.baseline?.elements ?? []).filter((e) => e.box.w > 0 && e.box.h > 0).sort((a, b) => b.box.w * b.box.h - a.box.w * a.box.h);
   const requested = new Set((screen.requests ?? []).map((r) => r.elementKey));
+  const areas = (screen.requests ?? []).flatMap((r) => (r.area ? [r.area] : []));
+
+  const startDrag = (e: React.PointerEvent) => {
+    if (e.button !== 0 || !frame.current) return;
+    const rect = frame.current.getBoundingClientRect();
+    const at = (ev: PointerEvent | React.PointerEvent) => ({
+      x: Math.min(Math.max(ev.clientX - rect.left, 0), rect.width),
+      y: Math.min(Math.max(ev.clientY - rect.top, 0), rect.height),
+    });
+    const start = at(e);
+    dragged.current = false;
+    const toBox = (end: { x: number; y: number }): Box => ({
+      x: Math.round(Math.min(start.x, end.x) / scale),
+      y: Math.round(Math.min(start.y, end.y) / scale),
+      w: Math.round(Math.abs(end.x - start.x) / scale),
+      h: Math.round(Math.abs(end.y - start.y) / scale),
+    });
+    const move = (ev: PointerEvent) => {
+      const end = at(ev);
+      if (!dragged.current && Math.hypot(end.x - start.x, end.y - start.y) < DRAG_MIN) return;
+      dragged.current = true;
+      setDrawing(toBox(end));
+    };
+    const up = (ev: PointerEvent) => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      setDrawing(null);
+      if (dragged.current) onArea(toBox(at(ev)));
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+
   return (
     <div className="flex justify-center rounded-lg bg-muted py-4">
-      <div className="relative overflow-hidden rounded-md bg-white shadow-soft" style={{ width: PICK_WIDTH, height: screen.size.h * scale }}>
+      <div
+        ref={frame}
+        className="relative cursor-crosshair touch-none select-none overflow-hidden rounded-md bg-white shadow-soft"
+        style={{ width: PICK_WIDTH, height: screen.size.h * scale }}
+        onPointerDown={startDrag}
+        onClickCapture={(e) => {
+          if (!dragged.current) return;
+          dragged.current = false;
+          e.stopPropagation();
+        }}
+      >
         <img src={imageSrc(screen.baseline?.image ?? "")} alt={`${screen.name} 기준`} draggable={false} className="size-full object-cover object-top" />
         {elements.map((e) => (
           <button
@@ -347,6 +421,17 @@ function PickShot({ screen, picked, onPick }: { screen: Screen; picked: string; 
               style={{ left: box(e).left + box(e).width - 4, top: box(e).top - 4 }}
             />
           ))}
+        {areas.map((a) => (
+          <span key={`area-${a.x}-${a.y}-${a.w}-${a.h}`} aria-hidden className="pointer-events-none absolute rounded-[3px] border-2 border-dashed border-change" style={css(a)} />
+        ))}
+        {(drawing ?? area) && (
+          <span
+            data-testid="area-selection"
+            aria-hidden
+            className="pointer-events-none absolute rounded-[3px] border-2 border-dashed border-brand bg-brand/10"
+            style={css((drawing ?? area) as Box)}
+          />
+        )}
       </div>
     </div>
   );

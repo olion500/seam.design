@@ -32,11 +32,19 @@ export interface ScreenSpec {
   elements: ScreenElement[];
 }
 
+/** A rectangle in screen (CSS px) coordinates of the baseline capture. */
+export interface Box {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface CapturedElement {
   key: string;
   role: string;
   label: string;
-  box: { x: number; y: number; w: number; h: number };
+  box: Box;
 }
 
 export interface Baseline {
@@ -51,6 +59,8 @@ export interface Baseline {
 export interface ChangeRequest {
   id: string;
   elementKey?: string;
+  /** A region drawn on the baseline screenshot, for requests not tied to one element. */
+  area?: Box;
   label?: string;
   note: string;
 }
@@ -172,7 +182,8 @@ export interface ElementChange {
   route?: string;
   sources: string[];
   baselineImage?: string;
-  element?: { key: string; role: string; label: string; box: { x: number; y: number; w: number; h: number } };
+  element?: { key: string; role: string; label: string; box: Box };
+  area?: Box;
   label?: string;
   note: string;
   requestId: string;

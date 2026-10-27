@@ -154,6 +154,19 @@ describe("seam CLI round trip", () => {
     expect(after.screens[0].requests).toEqual([]);
   });
 
+  it("carries an area drawn on the screenshot into the change set, and verify leaves it for review", async () => {
+    const p = await readProject(root);
+    p.screens[0].requests = [{ id: "r2", area: { x: 10, y: 20, w: 100, h: 40 }, note: "여백을 넓게" }];
+    await writeProject(root, p);
+
+    const { json } = await seam(root, "changes");
+    expect(json.changes).toHaveLength(1);
+    expect(json.changes[0]).toMatchObject({ kind: "element", requestId: "r2", area: { x: 10, y: 20, w: 100, h: 40 } });
+    expect(json.changes[0].element).toBeUndefined();
+    const verified = await seam(root, "verify", "--no-capture");
+    expect(verified.json.results.map((r: { status: string }) => r.status)).toEqual(["review"]);
+  });
+
   it("seam wait returns what the editor sent, before or while it waits, and times out otherwise", async () => {
     const app = createApp({ store: new Store(":memory:"), capture: async () => "", repoDir: root });
     const send = (message: string) => app(new Request("http://test/api/repo/send", { method: "POST", body: JSON.stringify({ message }) }));

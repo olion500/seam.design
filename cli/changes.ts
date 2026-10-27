@@ -23,6 +23,7 @@ export function pendingChanges(project: Project): Change[] {
         sources: s.sources.map((m) => m.path),
         baselineImage: s.baseline?.image ? `.seam/${s.baseline.image}` : undefined,
         element: el,
+        ...(r.area && { area: r.area }),
         label: r.label,
         note: r.note,
         requestId: r.id,
@@ -57,7 +58,11 @@ export function changeMarkdown(project: Project, changes: Change[]): string {
   if (elements.length) {
     lines.push("## 화면 요소", "");
     for (const c of elements) {
-      const target = c.element ? `${c.element.role} “${c.element.label}”` : "화면 전체";
+      const target = c.element
+        ? `${c.element.role} “${c.element.label}”`
+        : c.area
+          ? `영역 (x ${c.area.x}, y ${c.area.y}, ${c.area.w}×${c.area.h})`
+          : "화면 전체";
       const what = [c.label !== undefined && c.label !== "" ? `문구를 “${c.label}”(으)로` : null, c.note || null].filter(Boolean).join(" · ");
       lines.push(`- **${c.screenName}** (${c.route ?? "?"}, ${c.sources.join(", ")}) — ${target}: ${what}`);
     }

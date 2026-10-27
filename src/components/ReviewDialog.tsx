@@ -23,7 +23,7 @@ const KIND: Record<Change["kind"], string> = { token: "토큰", element: "화면
 function summary(c: Change, name: (id: string) => string) {
   if (c.kind === "token") return `${c.path}  ${c.before} → ${c.after}`;
   if (c.kind === "transition") return `${c.change === "added" ? "추가" : "삭제"}: ${name(c.from)} → ${name(c.to)} · ${c.label}`;
-  const target = c.element ? `“${c.element.label}”` : "화면 전체";
+  const target = c.element ? `“${c.element.label}”` : c.area ? "고른 영역" : "화면 전체";
   const what = [c.label ? `문구를 “${c.label}”(으)로` : null, c.note || null].filter(Boolean).join(" · ");
   return `${c.screenName} · ${target}${what ? ` — ${what}` : ""}`;
 }
@@ -37,9 +37,11 @@ type Box = { x: number; y: number; w: number; h: number };
 function Pair({ project, shot, change, version }: { project: Project; shot: Shot; change?: Change; version: string }) {
   const screen = project.screens.find((s) => s.id === shot.id);
   const element = change?.kind === "element" ? change.element : undefined;
+  const area = change?.kind === "element" ? change.area : undefined;
   const label = change?.kind === "element" ? change.label : undefined;
   // The element may move or get its new text after the change, so find it again in the after capture.
-  const afterBox = element && shot.elements.find((e) => (label && e.label === label) || e.key === element.key)?.box;
+  // A drawn area has no element to follow, so it marks the same spot on both.
+  const afterBox = element ? shot.elements.find((e) => (label && e.label === label) || e.key === element.key)?.box : area;
   const one = (title: string, src: string | undefined, size: { w: number; h: number }, box?: Box) => {
     const scale = PAIR_W / size.w;
     return (
@@ -64,7 +66,7 @@ function Pair({ project, shot, change, version }: { project: Project; shot: Shot
   };
   return (
     <div className="flex gap-3">
-      {one("기준", screen?.baseline?.image ? imageSrc(screen.baseline.image) : undefined, screen?.size ?? shot.size, element?.box)}
+      {one("기준", screen?.baseline?.image ? imageSrc(screen.baseline.image) : undefined, screen?.size ?? shot.size, element?.box ?? area)}
       {one("결과", `/repo/${shot.file}?v=${encodeURIComponent(version)}`, shot.size, afterBox)}
     </div>
   );

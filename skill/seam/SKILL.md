@@ -49,7 +49,7 @@ The editor has an **AI에게 보내기** button (repo mode only). It saves the p
 
 1. `seam changes` (or the output of `seam wait`) writes `.seam/changes/pending/change.json` and `README.md` and prints the list. Kinds:
    - `token`: `path` (e.g. `colors.primary`) in `file` at `line` goes from `before` to `after`.
-   - `element`: on screen `screen` (`route`, source files in `sources`), the element `element` (role, label, box in the baseline screenshot `baselineImage`) should get the new text `label` and/or follow the free-form `note`.
+   - `element`: on screen `screen` (`route`, source files in `sources`), the element `element` (role, label, box in the baseline screenshot `baselineImage`) should get the new text `label` and/or follow the free-form `note`. Instead of an element, the user may have drawn an `area` (x, y, w, h in screen CSS px of the baseline screenshot): the note is about whatever is inside that rectangle, so look at that part of `baselineImage` to find the code. With neither, the note is about the whole screen.
    - `transition`: a flow edge was `added` or `removed`. Update the navigation code and the flow document (`flows.file`) together, following the repo's navigation rules.
 2. Plan the code edits. Find the code behind each element from `sources`, the element label, and the screenshot. If a change is ambiguous or conflicts with the repo's rules, ask the user instead of guessing.
 3. Edit the code and run the repo's own checks (typecheck, lint, tests).

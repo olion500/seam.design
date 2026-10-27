@@ -43,7 +43,7 @@ export function screenChanges(screen: Screen): Change[] {
   const requests = (screen.requests ?? []).map((r) => {
     const el = screen.baseline?.elements?.find((e) => e.key === r.elementKey);
     const what = [r.label ? `문구 “${r.label}”` : null, r.note || null].filter(Boolean).join(" · ");
-    return { id: `request:${r.id}`, elementId: r.elementKey ?? null, summary: `${el ? el.label : "화면 전체"}: ${what}` };
+    return { id: `request:${r.id}`, elementId: r.elementKey ?? null, summary: `${el ? el.label : r.area ? "고른 영역" : "화면 전체"}: ${what}` };
   });
   if (!screen.variant || !screen.baseline?.spec) return requests;
   return [...diffSpecs(screen.baseline.spec, screen.variant.spec), ...requests];
