@@ -7,6 +7,7 @@ const H = 370;
 const nodes = ["HOME", "LIST", "DETAIL", "EDIT", "PREP", "BREW"].map((id) => ({ id, width: W, height: H }));
 const edges = [
   { id: "a", from: "HOME", to: "LIST" },
+  { id: "a2", from: "HOME", to: "LIST" },
   { id: "b", from: "LIST", to: "DETAIL" },
   { id: "c", from: "DETAIL", to: "EDIT" },
   { id: "d", from: "EDIT", to: "DETAIL" },
@@ -25,7 +26,9 @@ describe("autoLayout", () => {
     for (let i = 0; i < placed.length; i++)
       for (let j = i + 1; j < placed.length; j++) expect(Math.abs(placed[i].x - placed[j].x) >= W || Math.abs(placed[i].y - placed[j].y) >= H).toBe(true);
 
-    expect(Object.keys(routes).sort()).toEqual(["a", "b", "c", "d", "e", "f", "g", "h"]);
+    expect(Object.keys(routes).sort()).toEqual(["a", "a2", "b", "c", "d", "e", "f", "g", "h"]);
+    // Transitions between the same two screens share one line.
+    expect(routes.a2.points).toEqual(routes.a.points);
     const onBorder = (p: { x: number; y: number }, id: string) => {
       const n = positions[id];
       const within = p.x >= n.x - 1 && p.x <= n.x + W + 1 && p.y >= n.y - 1 && p.y <= n.y + H + 1;

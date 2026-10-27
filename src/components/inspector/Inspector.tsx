@@ -78,10 +78,30 @@ function TransitionInspector({ transition: t }: { transition: Transition }) {
   const preset = project.motions.find((m) => m.id === t.motionId);
   const elements = (from && displaySpec(from)?.elements.filter((e) => e.kind !== "spacer")) ?? [];
   const patch = (p: Partial<Transition>) => ed.updateTransition(t.id, p);
+  // The canvas draws these as one line, so this is where each of them can be picked.
+  const siblings = project.transitions.filter((x) => x.from === t.from && x.to === t.to);
 
   return (
     <>
       <Header eyebrow="전이" title={`${from?.name ?? "?"} → ${to?.name ?? "끊어진 연결"}`} onDelete={() => ed.removeTransition(t.id)} />
+      {siblings.length > 1 && (
+        <Section title={`같은 선 ${siblings.length}개`}>
+          {siblings.map((x) => (
+            <button
+              key={x.id}
+              type="button"
+              aria-current={x.id === t.id}
+              onClick={() => ed.select({ kind: "transition", id: x.id })}
+              className={cn(
+                "flex min-h-10 items-center rounded-xl px-3 py-2 text-left text-sm",
+                x.id === t.id ? "bg-brand/10 font-medium text-brand" : "bg-muted hover:bg-accent",
+              )}
+            >
+              {x.label || "이름 없음"}
+            </button>
+          ))}
+        </Section>
+      )}
       {from && to && preset && (
         <Section title="전환 재생">
           <TransitionPlayer from={from} to={to} preset={preset} width={150} />

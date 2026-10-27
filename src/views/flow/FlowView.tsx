@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { useSync } from "@/store/persist";
 import { useRuleState } from "@/store/derived";
 import { useEditor } from "@/store/store";
+import type { Transition } from "@/model/types";
 import { uploadScreenshot } from "@/store/actions";
 import { EmptyState } from "./EmptyState";
 import { ScreenNode, edgeHandles, isSideHandle, type ScreenNodeType } from "./ScreenNode";
@@ -71,14 +72,15 @@ function Canvas() {
   }, [project.screens, selection, warnings, compareIds, setNodes]);
 
   const edges = useMemo<TransitionEdgeType[]>(() => {
-    const groups = new Map<string, string[]>();
-    for (const t of project.transitions) groups.set(`${t.from}>${t.to}`, [...(groups.get(`${t.from}>${t.to}`) ?? []), t.id]);
-    return project.transitions.map((t) => {
-        const group = groups.get(`${t.from}>${t.to}`) ?? [t.id];
-        const offset = (group.indexOf(t.id) - (group.length - 1) / 2) * 28;
+    // Transitions between the same two screens in the same direction are drawn as one line, named after the first.
+    const groups = new Map<string, Transition[]>();
+    for (const t of project.transitions) groups.set(`${t.from}>${t.to}`, [...(groups.get(`${t.from}>${t.to}`) ?? []), t]);
+    return [...groups.values()].map((group) => {
+        const t = group[0];
         const from = project.screens.find((s) => s.id === t.from);
         const to = project.screens.find((s) => s.id === t.to);
-        const selected = selection?.kind === "transition" && selection.id === t.id;
+        const selected = selection?.kind === "transition" && group.some((x) => x.id === selection.id);
+        const label = group.length > 1 ? `${t.label} +${group.length - 1}` : t.label;
         // An arranged route only fits while both screens are still where auto-arrange put them.
         const route = t.route && from && to && samePoint(t.route.from, from.position) && samePoint(t.route.to, to.position) ? t.route.points : undefined;
         return {
@@ -89,7 +91,12 @@ function Canvas() {
           ...edgeHandles(from?.position ?? { x: 0, y: 0 }, to?.position ?? { x: 0, y: 0 }),
           selected,
           markerEnd: { type: MarkerType.ArrowClosed, color: selected ? "#0085E4" : "#666666", width: 16, height: 16 },
-          data: { label: t.label, conditional: t.conditional, broken: warnings.brokenTransitions.has(t.id), offset, route },
+          data: {
+            label,
+            conditional: group.every((x) => x.conditional),
+            broken: group.some((x) => warnings.brokenTransitions.has(x.id)),
+            route,
+          },
         };
       });
   }, [project.transitions, project.screens, selection, warnings]);

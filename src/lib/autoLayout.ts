@@ -72,23 +72,31 @@ export async function autoLayout(nodes: LayoutNode[], edges: LayoutEdge[], engin
 async function bestLayout(elk: ELK, nodes: LayoutNode[], edges: LayoutEdge[]): Promise<Layout> {
   const ids = new Set(nodes.map((n) => n.id));
   const usable = edges.filter((e) => e.from !== e.to && ids.has(e.from) && ids.has(e.to));
+  // Transitions between the same two screens in the same direction share one line, keyed by the first of them.
+  const lines = new Map<string, LayoutEdge[]>();
+  for (const e of usable) {
+    const key = `${e.from}>${e.to}`;
+    lines.set(key, [...(lines.get(key) ?? []), e]);
+  }
+  const byLead = new Map([...lines.values()].map((g) => [g[0].id, g]));
   let best: Layout | null = null;
   for (let seed = 1; seed <= TRIES; seed++) {
     const graph: ElkNode = await elk.layout({
       id: "root",
       layoutOptions: { ...OPTIONS, "elk.randomSeed": String(seed) },
       children: nodes.map((n) => ({ id: n.id, width: n.width, height: n.height })),
-      edges: usable.map((e) => ({ id: e.id, sources: [e.from], targets: [e.to] })),
+      edges: [...byLead.values()].map(([e]) => ({ id: e.id, sources: [e.from], targets: [e.to] })),
     });
     const positions = Object.fromEntries((graph.children ?? []).map((c) => [c.id, { x: c.x ?? 0, y: c.y ?? 0 }]));
     const routes: Record<string, TransitionRoute> = {};
     for (const e of graph.edges ?? []) {
       const section = e.sections?.[0];
-      const edge = usable.find((u) => u.id === e.id);
-      if (!section || !edge) continue;
-      routes[e.id] = { points: [section.startPoint, ...(section.bendPoints ?? []), section.endPoint], from: positions[edge.from], to: positions[edge.to] };
+      const group = byLead.get(e.id);
+      if (!section || !group) continue;
+      const points = [section.startPoint, ...(section.bendPoints ?? []), section.endPoint];
+      for (const t of group) routes[t.id] = { points, from: positions[t.from], to: positions[t.to] };
     }
-    const crossings = countCrossings(Object.values(routes).map((r) => r.points));
+    const crossings = countCrossings([...byLead.keys()].flatMap((id) => (routes[id] ? [routes[id].points] : [])));
     if (!best || crossings < best.crossings) best = { positions, routes, crossings };
     if (crossings === 0) break;
   }
