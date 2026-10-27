@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -10,7 +10,7 @@ import {
   type OnConnect,
   type OnConnectEnd,
 } from "@xyflow/react";
-import { CircleHelp, ImagePlus, Minus, Plus, RefreshCw, SquarePlus, TriangleAlert, WifiOff } from "lucide-react";
+import { CircleHelp, ImagePlus, LoaderCircle, Minus, Network, Plus, RefreshCw, SquarePlus, TriangleAlert, WifiOff } from "lucide-react";
 import { Tip } from "@/components/bits";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -31,6 +31,7 @@ const nodeTypes = { screen: ScreenNode };
 const edgeTypes = { transition: TransitionEdge };
 
 const elementHandle = (id?: string | null) => (id && !id.startsWith("s-") ? id : undefined);
+const samePoint = (a: { x: number; y: number }, b?: { x: number; y: number }) => !!b && Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5;
 
 function Canvas() {
   const { fitView } = useReactFlow();
@@ -76,6 +77,8 @@ function Canvas() {
         const from = project.screens.find((s) => s.id === t.from);
         const to = project.screens.find((s) => s.id === t.to);
         const selected = selection?.kind === "transition" && selection.id === t.id;
+        // An arranged route only fits while both screens are still where auto-arrange put them.
+        const route = t.route && from && to && samePoint(t.route.from, from.position) && samePoint(t.route.to, to.position) ? t.route.points : undefined;
         return {
           id: t.id,
           type: "transition",
@@ -84,7 +87,7 @@ function Canvas() {
           ...edgeHandles(from?.position ?? { x: 0, y: 0 }, to?.position ?? { x: 0, y: 0 }),
           selected,
           markerEnd: { type: MarkerType.ArrowClosed, color: selected ? "#0085E4" : "#666666", width: 16, height: 16 },
-          data: { label: t.label, conditional: t.conditional, broken: warnings.brokenTransitions.has(t.id), offset },
+          data: { label: t.label, conditional: t.conditional, broken: warnings.brokenTransitions.has(t.id), offset, route },
         };
       });
   }, [project.transitions, project.screens, selection, warnings]);
@@ -144,6 +147,7 @@ function Canvas() {
       <div className="pointer-events-none absolute top-4 right-4 z-10 flex max-w-[calc(100%-220px)] flex-wrap justify-end gap-2 whitespace-nowrap *:pointer-events-auto max-md:left-4 max-md:max-w-none">
         <RenderPicker />
         <DevicePicker />
+        <ArrangeButton />
         <Tip label="빈 화면 추가">
           <Button variant="secondary" size="icon" className="bg-white shadow-soft" aria-label="화면 추가" onClick={() => useEditor.getState().addScreen()}>
             <SquarePlus />
@@ -158,6 +162,42 @@ function Canvas() {
       <Hints comparing={compareIds.length} />
       <ZoomControls />
     </ReactFlow>
+  );
+}
+
+function ArrangeButton() {
+  const { getNodes, fitView } = useReactFlow();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const run = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const { autoLayout } = await import("@/lib/autoLayout");
+      const { project, arrange } = useEditor.getState();
+      const nodes = getNodes().map((n) => ({ id: n.id, width: n.measured?.width ?? 0, height: n.measured?.height ?? 0 }));
+      const layout = await autoLayout(nodes, project.transitions);
+      arrange(layout.positions, layout.routes);
+      requestAnimationFrame(() => void fitView({ padding: 0.15, maxZoom: 1, duration: 300 }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Tip label={error ? `자동 정렬 실패: ${error}` : "자동 정렬 · 선이 덜 꼬이게 다시 배치"}>
+      <Button
+        variant="secondary"
+        size="icon"
+        className={cn("bg-white shadow-soft", error && "text-destructive")}
+        aria-label="자동 정렬"
+        disabled={busy}
+        onClick={() => void run()}
+      >
+        {busy ? <LoaderCircle className="animate-spin" /> : <Network />}
+      </Button>
+    </Tip>
   );
 }
 

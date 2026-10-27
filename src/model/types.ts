@@ -92,8 +92,24 @@ export interface Screen {
   exitsOutside?: string[];
 }
 
+export interface Point {
+  x: number;
+  y: number;
+}
+
+/**
+ * A path laid out by auto-arrange, in canvas coordinates. `from` and `to` are where the two screens stood at the
+ * time; once either screen moves the route no longer fits and the editor draws a plain curve instead.
+ */
+export interface TransitionRoute {
+  points: Point[];
+  from: Point;
+  to: Point;
+}
+
 export interface Transition {
   id: string;
+  route?: TransitionRoute;
   from: string;
   to: string;
   label: string;

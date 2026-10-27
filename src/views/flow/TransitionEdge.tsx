@@ -1,19 +1,51 @@
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, Position, type Edge, type EdgeProps } from "@xyflow/react";
+import type { Point } from "@/model/types";
 
-export type TransitionEdgeType = Edge<{ label: string; conditional: boolean; broken: boolean; offset?: number }, "transition">;
+export type TransitionEdgeType = Edge<{ label: string; conditional: boolean; broken: boolean; offset?: number; route?: Point[] }, "transition">;
+
+const CORNER = 10;
+
+/** An orthogonal route with rounded corners, and the middle of its longest segment for the label. */
+export function routePath(points: Point[]): [string, number, number] {
+  let d = `M ${points[0].x} ${points[0].y}`;
+  for (let i = 1; i < points.length - 1; i++) {
+    const [prev, p, next] = [points[i - 1], points[i], points[i + 1]];
+    const before = Math.hypot(prev.x - p.x, prev.y - p.y);
+    const after = Math.hypot(next.x - p.x, next.y - p.y);
+    const r = Math.min(CORNER, before / 2, after / 2);
+    const a = { x: p.x + ((prev.x - p.x) / before) * r, y: p.y + ((prev.y - p.y) / before) * r };
+    const b = { x: p.x + ((next.x - p.x) / after) * r, y: p.y + ((next.y - p.y) / after) * r };
+    d += ` L ${a.x} ${a.y} Q ${p.x} ${p.y} ${b.x} ${b.y}`;
+  }
+  const last = points[points.length - 1];
+  d += ` L ${last.x} ${last.y}`;
+  let mid = { x: (points[0].x + last.x) / 2, y: (points[0].y + last.y) / 2 };
+  let longest = -1;
+  for (let i = 0; i < points.length - 1; i++) {
+    const len = Math.hypot(points[i + 1].x - points[i].x, points[i + 1].y - points[i].y);
+    if (len > longest) {
+      longest = len;
+      mid = { x: (points[i].x + points[i + 1].x) / 2, y: (points[i].y + points[i + 1].y) / 2 };
+    }
+  }
+  return [d, mid.x, mid.y];
+}
 
 export function TransitionEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, selected, markerEnd }: EdgeProps<TransitionEdgeType>) {
   const offset = data?.offset ?? 0;
   const vertical = sourcePosition === Position.Top || sourcePosition === Position.Bottom;
   const [dx, dy] = vertical ? [offset, 0] : [0, offset];
-  const [path, labelX, labelY] = getBezierPath({
-    sourceX: sourceX + dx,
-    sourceY: sourceY + dy,
-    targetX: targetX + dx,
-    targetY: targetY + dy,
-    sourcePosition,
-    targetPosition,
-  });
+  const [path, labelX, labelY] =
+    data?.route && data.route.length > 1
+      ? routePath(data.route)
+      : getBezierPath({
+          sourceX: sourceX + dx,
+          sourceY: sourceY + dy,
+          targetX: targetX + dx,
+          targetY: targetY + dy,
+          sourcePosition,
+          targetPosition,
+        });
   const color = selected ? "var(--brand)" : data?.broken ? "var(--warn)" : "#666";
   return (
     <>

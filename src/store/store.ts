@@ -4,7 +4,21 @@ import { immer } from "zustand/middleware/immer";
 import { temporal } from "zundo";
 import { type DeviceId, deviceSize } from "@/model/devices";
 import { defaultSpec, emptyProject, seedProject } from "@/model/seed";
-import type { ChangeRequest, MotionPreset, Project, RenderMode, Rule, Screen, ScreenElement, Selection, SourceMapping, Transition, View } from "@/model/types";
+import type {
+  ChangeRequest,
+  MotionPreset,
+  Point,
+  Project,
+  RenderMode,
+  Rule,
+  Screen,
+  ScreenElement,
+  Selection,
+  SourceMapping,
+  Transition,
+  TransitionRoute,
+  View,
+} from "@/model/types";
 
 const newId = () => crypto.randomUUID().slice(0, 8);
 const today = () => new Date().toLocaleDateString("ko-KR", { month: "long", day: "numeric" });
@@ -34,6 +48,8 @@ export interface EditorState {
   addScreen: (input?: { name?: string; image?: string; url?: string; position?: { x: number; y: number } }) => string;
   updateScreen: (id: string, patch: Partial<Pick<Screen, "name" | "terminal" | "states" | "position">>) => void;
   moveScreen: (id: string, position: { x: number; y: number }) => void;
+  /** Applies an auto-arrange result as one undo step: new screen positions plus the routes laid out for them. */
+  arrange: (positions: Record<string, Point>, routes: Record<string, TransitionRoute>) => void;
   setBaselineImage: (id: string, image: string, url?: string) => void;
   setLiveUrl: (id: string, url: string | undefined) => void;
   createVariant: (id: string) => void;
@@ -125,6 +141,14 @@ export const useEditor = create<EditorState>()(
         set((s) => {
           const screen = s.project.screens.find((x) => x.id === id);
           if (screen) screen.position = position;
+        }),
+      arrange: (positions, routes) =>
+        set((s) => {
+          for (const screen of s.project.screens) if (positions[screen.id]) screen.position = positions[screen.id];
+          for (const t of s.project.transitions) {
+            if (routes[t.id]) t.route = routes[t.id];
+            else delete t.route;
+          }
         }),
       setBaselineImage: (id, image, url) =>
         set((s) => {
