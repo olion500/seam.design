@@ -39,7 +39,11 @@ const OPTIONS = {
   "elk.spacing.edgeEdge": "14",
   "elk.layered.spacing.nodeNodeBetweenLayers": "140",
   "elk.layered.spacing.edgeNodeBetweenLayers": "30",
-  // Areas are nested boxes; lay them out with their screens as one graph and report everything in canvas coordinates.
+};
+
+// Areas are nested boxes; lay them out with their screens as one graph and report everything in canvas coordinates.
+// Only when there are areas: this mode also changes how a flat graph comes out (wider, one more crossing on coffee).
+const NESTED_OPTIONS = {
   "elk.hierarchyHandling": "INCLUDE_CHILDREN",
   "elk.json.shapeCoords": "ROOT",
   "elk.json.edgeCoords": "ROOT",
@@ -101,7 +105,7 @@ async function bestLayout(elk: ELK, nodes: LayoutNode[], edges: LayoutEdge[]): P
   for (let seed = 1; seed <= TRIES; seed++) {
     const graph: ElkNode = await elk.layout({
       id: "root",
-      layoutOptions: { ...OPTIONS, "elk.randomSeed": String(seed) },
+      layoutOptions: { ...OPTIONS, ...(areas.size > 0 && NESTED_OPTIONS), "elk.randomSeed": String(seed) },
       children,
       edges: [...byLead.values()].map(([e]) => ({
         id: e.id,
