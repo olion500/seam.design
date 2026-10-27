@@ -122,6 +122,7 @@ describe("seam CLI round trip", () => {
     expect(p.screens[0].size).toEqual({ w: 402, h: 874 });
     expect(p.transitions.map((t) => `${t.from}>${t.to}`)).toEqual(["HOME>PREP1", "PREP1>HOME"]);
     expect(p.screens.find((s) => s.id === "HOME")?.exitsOutside).toEqual(["UI_LAB / UI_AUDIT"]);
+    expect(p.rules.map((r) => r.check)).toEqual(["touch-target", "no-dead-end", "token-colors", "consistent-buttons", "reduced-motion"]);
     expect(pendingChanges(p)).toEqual([]);
   });
 
@@ -130,6 +131,7 @@ describe("seam CLI round trip", () => {
     const home = p.transitions.find((t) => t.from === "HOME")!;
     p.transitions.push({ ...home, to: "HOME", from: "PREP1", label: "사용자가 더한 전이" });
     p.screens[0].area = "추출";
+    p.rules = p.rules.filter((r) => r.check !== "consistent-buttons").map((r) => (r.check === "touch-target" ? { ...r, enabled: false } : r));
     p.areaLayouts = { 추출: { positions: { HOME: { x: 1, y: 2 } }, routes: {} } };
     await writeProject(root, p);
     await seam(root, "import");
@@ -137,6 +139,9 @@ describe("seam CLI round trip", () => {
     const again = await readProject(root);
     expect(again.screens[0].area).toBe("추출");
     expect(again.areaLayouts).toEqual(p.areaLayouts);
+    // Rules keep the user's settings, and a rule added to seam since the last import comes in.
+    expect(again.rules.find((r) => r.check === "touch-target")?.enabled).toBe(false);
+    expect(again.rules.filter((r) => r.check === "consistent-buttons")).toHaveLength(1);
     const ids = again.transitions.map((t) => t.id);
     expect(ids).toHaveLength(3);
     expect(new Set(ids).size).toBe(3);

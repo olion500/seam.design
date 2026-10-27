@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { DEFAULT_DEVICE, type DeviceId, deviceSize } from "../src/model/devices";
+import { IMPORT_RULES } from "../src/model/rules";
 import { seedProject } from "../src/model/seed";
 import type { Project, Screen, Transition } from "../src/model/types";
 import type { FlowEdge, FlowNode, ParsedToken, RouteFile } from "./parse";
@@ -158,7 +159,11 @@ export function buildProject({ config, routes, nodes, edges, tokens, tokenFile, 
     transitions,
     tokens: projectTokens,
     motions: previous?.motions ?? seed.motions,
-    rules: previous?.rules ?? seed.rules.filter((r) => r.check === "no-dead-end" || r.check === "reduced-motion"),
+    // Rules that can check captured screens; an earlier import keeps its own and gains any added since.
+    rules: [
+      ...(previous?.rules ?? []),
+      ...IMPORT_RULES.filter((t) => !previous?.rules.some((r) => r.check === t.check)).map((t) => ({ ...t, id: crypto.randomUUID().slice(0, 8) })),
+    ],
     assets: [],
     device,
     areaLayouts: previous?.areaLayouts,

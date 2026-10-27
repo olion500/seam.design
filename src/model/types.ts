@@ -45,6 +45,10 @@ export interface CapturedElement {
   role: string;
   label: string;
   box: Box;
+  /** Text color as #RRGGBB, when the control has text. */
+  color?: string;
+  /** Opaque fill behind the control as #RRGGBB; absent when it is see-through. */
+  background?: string;
 }
 
 export interface Baseline {
@@ -144,7 +148,7 @@ export interface MotionPreset {
   reduced: { kind: "fade" | "none"; durationMs: number } | null;
 }
 
-export type RuleCheck = "single-primary" | "touch-target" | "no-dead-end" | "token-colors" | "reduced-motion";
+export type RuleCheck = "single-primary" | "touch-target" | "no-dead-end" | "token-colors" | "consistent-buttons" | "reduced-motion";
 
 export interface Rule {
   id: string;

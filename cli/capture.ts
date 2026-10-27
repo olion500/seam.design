@@ -20,12 +20,40 @@ const EXTRACT = `(() => {
     const hit = document.elementFromPoint(x, y);
     return !!hit && (el.contains(hit) || hit.contains(el));
   };
+  // Opaque colors only, as #RRGGBB; see-through ones depend on what is behind them.
+  const hex = (css) => {
+    const m = /rgba?\\(([^)]+)\\)/.exec(css || '');
+    if (!m) return undefined;
+    const [r, g, b, a = 1] = m[1].split(/[\\s,\\/]+/).filter(Boolean).map(Number);
+    if (a < 1) return undefined;
+    return '#' + [r, g, b].map((v) => Math.round(v).toString(16).padStart(2, '0')).join('').toUpperCase();
+  };
+  // The color of the control's own text, if it has any (an icon-only button has none).
+  const textColor = (el) => {
+    const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) if (n.textContent.trim()) return hex(getComputedStyle(n.parentElement).color);
+    return el.value ? hex(getComputedStyle(el).color) : undefined;
+  };
+  // The fill that covers the control: its own, or that of an inner box about as big (e.g. a pressable wrapping a view).
+  const fill = (el, r) => {
+    for (const n of [el, ...[...el.querySelectorAll('*')].slice(0, 30)]) {
+      const c = hex(getComputedStyle(n).backgroundColor);
+      if (!c) continue;
+      const q = n.getBoundingClientRect();
+      if (q.width * q.height >= r.width * r.height * 0.8) return c;
+    }
+    return undefined;
+  };
   const push = (el, role) => {
     const r = visible(el);
     if (!r || !onTop(el, r)) return;
     const label = (el.getAttribute('aria-label') || el.innerText || el.value || el.getAttribute('placeholder') || '').replace(/\\s+/g, ' ').trim().slice(0, 80);
     if (!label) return;
-    out.push({ role, label, box: { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) } });
+    const color = textColor(el), background = fill(el, r);
+    out.push({
+      role, label, box: { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) },
+      ...(color && { color }), ...(background && { background }),
+    });
   };
   for (const el of document.querySelectorAll(sel)) {
     if ([...seen].some((s) => s.contains(el))) continue;
