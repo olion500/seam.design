@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, RotateCcw } from "lucide-react";
 import { Tip } from "@/components/bits";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { api, bumpRepoImages, imageSrc } from "@/lib/api";
+import { pixelDiff } from "@/lib/pixelDiff";
 import { cn } from "@/lib/utils";
 import type { Change, Project, ReviewState, VerifyResult } from "@/model/types";
 import { refreshReview, saveProject, useSync } from "@/store/persist";
@@ -33,6 +34,63 @@ const changeKey = (c: Change) => (c.kind === "element" ? c.requestId : c.kind ==
 const PAIR_W = 180;
 
 type Box = { x: number; y: number; w: number; h: number };
+
+const loadImage = (src: string) =>
+  new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`이미지를 불러오지 못했습니다: ${src}`));
+    img.src = src;
+  });
+
+const percent = (ratio: number) => (ratio === 0 ? "없음" : ratio < 0.001 ? "바뀜 곳 0.1% 미만" : `바뀜 곳 ${(ratio * 100).toFixed(1)}%`);
+
+/** Both captures drawn at the same width, top-aligned, with changed pixels painted in the change color. */
+function DiffFigure({ before, after, height }: { before: string; after: string; height: number }) {
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const [result, setResult] = useState<{ ratio: number } | { error: string } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    setResult(null);
+    Promise.all([loadImage(before), loadImage(after)])
+      .then(([a, b]) => {
+        const target = canvas.current;
+        if (cancelled || !target) return;
+        const w = target.width;
+        const h = target.height;
+        const pixels = (img: HTMLImageElement) => {
+          const ctx = Object.assign(document.createElement("canvas"), { width: w, height: h }).getContext("2d", { willReadFrequently: true });
+          if (!ctx) throw new Error("캔버스를 쓸 수 없습니다");
+          ctx.fillStyle = "#fff";
+          ctx.fillRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, (img.naturalHeight / img.naturalWidth) * w);
+          return ctx.getImageData(0, 0, w, h).data;
+        };
+        const out = new ImageData(w, h);
+        const ratio = pixelDiff(pixels(a), pixels(b), out.data);
+        target.getContext("2d")?.putImageData(out, 0, 0);
+        setResult({ ratio });
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setResult({ error: e instanceof Error ? e.message : String(e) });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [before, after]);
+  return (
+    <figure className="flex flex-col gap-1">
+      <figcaption className="text-xs text-muted-foreground">
+        차이
+        {result && "ratio" in result && <span className={cn("ml-1.5", result.ratio > 0 && "font-medium text-change")}>{percent(result.ratio)}</span>}
+      </figcaption>
+      <div className="relative overflow-hidden rounded-md border bg-white" style={{ width: PAIR_W, height }}>
+        <canvas ref={canvas} aria-label="바뀜 곳 강조" width={PAIR_W * 2} height={Math.round(height * 2)} className="size-full" />
+        {result && "error" in result && <span className="absolute inset-0 flex items-center justify-center p-2 text-center text-xs text-muted-foreground">{result.error}</span>}
+      </div>
+    </figure>
+  );
+}
 
 function Pair({ project, shot, change, version }: { project: Project; shot: Shot; change?: Change; version: string }) {
   const screen = project.screens.find((s) => s.id === shot.id);
@@ -64,10 +122,13 @@ function Pair({ project, shot, change, version }: { project: Project; shot: Shot
       </figure>
     );
   };
+  const before = screen?.baseline?.image ? imageSrc(screen.baseline.image) : undefined;
+  const after = `/repo/${shot.file}?v=${encodeURIComponent(version)}`;
   return (
     <div className="flex gap-3">
-      {one("기준", screen?.baseline?.image ? imageSrc(screen.baseline.image) : undefined, screen?.size ?? shot.size, element?.box ?? area)}
-      {one("결과", `/repo/${shot.file}?v=${encodeURIComponent(version)}`, shot.size, afterBox)}
+      {one("기준", before, screen?.size ?? shot.size, element?.box ?? area)}
+      {one("결과", after, shot.size, afterBox)}
+      {before && <DiffFigure before={before} after={after} height={shot.size.h * (PAIR_W / shot.size.w)} />}
     </div>
   );
 }
