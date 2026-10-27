@@ -24,6 +24,19 @@ const SIDE_HANDLES = [
   { id: "t-bottom", type: "target", position: Position.Bottom, style: { left: "60%" } },
 ] as const;
 
+// What the user drags to start a transition: one dot centred on each side. The side handles above stay hidden and
+// only decide where lines attach, offset so lines running both ways between two screens do not overlap.
+// Left and right dots sit at the middle of the phone screen, which starts below the 26px name row.
+const SCREEN_MIDDLE = { top: "calc(50% + 13px)" };
+const DRAG_HANDLES = [
+  { id: "drag-right", position: Position.Right, style: SCREEN_MIDDLE },
+  { id: "drag-left", position: Position.Left, style: SCREEN_MIDDLE },
+  { id: "drag-top", position: Position.Top, style: undefined },
+  { id: "drag-bottom", position: Position.Bottom, style: undefined },
+] as const;
+
+export const isSideHandle = (id?: string | null) => !!id && (id.startsWith("s-") || id.startsWith("drag-"));
+
 export function edgeHandles(from: { x: number; y: number }, to: { x: number; y: number }) {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
@@ -56,7 +69,10 @@ function ScreenNodeImpl({ data, selected }: NodeProps<ScreenNodeType>) {
   return (
     <div className={"relative flex flex-col gap-1.5 transition-transform hover:-translate-y-0.5"} style={{ width: thumbW }}>
       {SIDE_HANDLES.map((h) => (
-        <Handle key={h.id} type={h.type} id={h.id} position={h.position} isConnectable={h.type === "source"} className="side-handle" style={h.style} />
+        <Handle key={h.id} type={h.type} id={h.id} position={h.position} isConnectable={false} className="side-handle" style={h.style} />
+      ))}
+      {DRAG_HANDLES.map((h) => (
+        <Handle key={h.id} type="source" id={h.id} position={h.position} style={h.style} className="drag-handle" title="끌어서 다른 화면에 놓으면 전이 만들기" />
       ))}
       <div className="flex h-5 min-w-0 items-center gap-1.5 text-xs">
         <span className={cn("max-w-[75%] shrink-0 truncate font-medium", selected ? "text-brand" : "text-muted-foreground")}>{screen.name}</span>

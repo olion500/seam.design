@@ -25,13 +25,13 @@ import { useRuleState } from "@/store/derived";
 import { useEditor } from "@/store/store";
 import { uploadScreenshot } from "@/store/actions";
 import { EmptyState } from "./EmptyState";
-import { ScreenNode, edgeHandles, type ScreenNodeType } from "./ScreenNode";
+import { ScreenNode, edgeHandles, isSideHandle, type ScreenNodeType } from "./ScreenNode";
 import { TransitionEdge, type TransitionEdgeType } from "./TransitionEdge";
 
 const nodeTypes = { screen: ScreenNode };
 const edgeTypes = { transition: TransitionEdge };
 
-const elementHandle = (id?: string | null) => (id && !id.startsWith("s-") ? id : undefined);
+const elementHandle = (id?: string | null) => (id && !isSideHandle(id) ? id : undefined);
 const samePoint = (a: { x: number; y: number }, b?: { x: number; y: number }) => !!b && Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5;
 
 function Canvas() {
