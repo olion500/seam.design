@@ -5,6 +5,7 @@ import {
   MarkerType,
   useNodesState,
   useReactFlow,
+  useStore,
   useViewport,
   type NodeChange,
   type OnConnect,
@@ -317,6 +318,11 @@ function Hints({ comparing }: { comparing: number }) {
 function ZoomControls() {
   const { zoomIn, zoomOut, fitView } = useReactFlow();
   const { zoom } = useViewport();
+  const flow = useStore((s) => s.domNode);
+  // Lets canvas CSS keep handles at the same on-screen size whatever the zoom.
+  useEffect(() => {
+    flow?.style.setProperty("--flow-inv-zoom", String(1 / zoom));
+  }, [flow, zoom]);
   return (
     <fieldset aria-label="확대 축소" className="absolute right-4 bottom-4 z-10 flex items-center gap-1 rounded-lg border bg-white p-1">
       <Button variant="ghost" size="icon" aria-label="축소" onClick={() => zoomOut()}>

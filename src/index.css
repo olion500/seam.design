@@ -121,8 +121,65 @@
   background: transparent;
 }
 
-.react-flow__node-screen:hover .react-flow__handle.side-handle.source {
-  background: #666;
+/* Drag-from dots: a fixed on-screen size at any zoom (--flow-inv-zoom is set by the zoom controls).
+   The handle itself stays on the screen edge so lines still start there; only the visible dot (::after)
+   floats outside, and ::before is a wider invisible ring around it so it is easy to grab. */
+.react-flow__handle.side-handle.source {
+  --inv: var(--flow-inv-zoom, 1);
+  --gap: calc(14px * var(--inv));
+  width: calc(12px * var(--inv));
+  height: calc(12px * var(--inv));
+  cursor: crosshair;
+}
+
+.react-flow__handle-right.side-handle.source {
+  --dx: var(--gap);
+  --dy: 0px;
+}
+
+.react-flow__handle-left.side-handle.source {
+  --dx: calc(var(--gap) * -1);
+  --dy: 0px;
+}
+
+.react-flow__handle-top.side-handle.source {
+  --dx: 0px;
+  --dy: calc(var(--gap) * -1);
+}
+
+.react-flow__handle-bottom.side-handle.source {
+  --dx: 0px;
+  --dy: var(--gap);
+}
+
+.react-flow__handle.side-handle.source::before,
+.react-flow__handle.side-handle.source::after {
+  content: "";
+  position: absolute;
+  border-radius: 999px;
+  transform: translate(var(--dx), var(--dy));
+}
+
+.react-flow__handle.side-handle.source::before {
+  inset: calc(-10px * var(--inv));
+}
+
+.react-flow__handle.side-handle.source::after {
+  inset: 0;
+  box-sizing: border-box;
+  border: calc(2px * var(--inv)) solid var(--brand);
+  background: #fff;
+  opacity: 0;
+  transition: opacity 120ms;
+}
+
+.react-flow__node-screen:hover .react-flow__handle.side-handle.source::after,
+.react-flow__node-screen.selected .react-flow__handle.side-handle.source::after {
+  opacity: 1;
+}
+
+.react-flow__handle.side-handle.source:hover::after {
+  background: var(--brand);
 }
 
 .react-flow__node-screen {
