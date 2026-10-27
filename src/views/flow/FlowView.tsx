@@ -10,7 +10,7 @@ import {
   type OnConnect,
   type OnConnectEnd,
 } from "@xyflow/react";
-import { CircleHelp, ImagePlus, LoaderCircle, Minus, Network, Plus, RefreshCw, SquarePlus, TriangleAlert, WifiOff } from "lucide-react";
+import { CircleHelp, ImagePlus, LoaderCircle, Maximize, Minus, Network, Plus, RefreshCw, SquarePlus, TriangleAlert, WifiOff } from "lucide-react";
 import { Tip } from "@/components/bits";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -282,7 +282,6 @@ function DevicePicker() {
 const HINTS: [string, string][] = [
   ["Shift + 클릭", "두 화면 비교"],
   ["더블클릭", "그 화면으로 크게 보기"],
-  ["확대율 누르기", "전체 보기"],
   ["요소를 다른 화면으로 끌기", "전이 만들기"],
 ];
 
@@ -323,12 +322,17 @@ function ZoomControls() {
       <Button variant="ghost" size="icon" aria-label="축소" onClick={() => zoomOut()}>
         <Minus />
       </Button>
-      <button type="button" className="min-w-12 text-center text-xs font-bold" title="화면에 맞추기" onClick={() => void fitView({ padding: 0.15, maxZoom: 1, duration: 300 })}>
+      <output className="min-w-12 text-center text-xs font-bold" aria-label="현재 확대율">
         {Math.round(zoom * 100)}%
-      </button>
+      </output>
       <Button variant="ghost" size="icon" aria-label="확대" onClick={() => zoomIn()}>
         <Plus />
       </Button>
+      <Tip label="화면에 맞추기">
+        <Button variant="ghost" size="icon" aria-label="화면에 맞추기" onClick={() => void fitView({ padding: 0.15, maxZoom: 1, duration: 300 })}>
+          <Maximize />
+        </Button>
+      </Tip>
     </fieldset>
   );
 }
