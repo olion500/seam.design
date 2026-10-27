@@ -31,8 +31,11 @@ export interface EditorState {
   focusChange: string | null;
   /** The screen zoomed in on the canvas, shown as the running app so it can be scrolled and tapped. */
   liveScreen: string | null;
+  /** Feature area boxes on the canvas; auto-arrange keeps areas together only while they are shown. */
+  showAreas: boolean;
 
   setView: (view: View) => void;
+  setShowAreas: (show: boolean) => void;
   select: (selection: Selection | null) => void;
   toggleCompare: (screenId: string) => void;
   clearCompare: () => void;
@@ -82,8 +85,13 @@ export const useEditor = create<EditorState>()(
       compareIds: [],
       focusChange: null,
       liveScreen: null,
+      showAreas: localStorage.getItem("seam:showAreas") !== "0",
 
       setView: (view) => set({ view, selection: null }),
+      setShowAreas: (showAreas) => {
+        localStorage.setItem("seam:showAreas", showAreas ? "1" : "0");
+        set({ showAreas });
+      },
       select: (selection) => set({ selection, focusChange: null }),
       toggleCompare: (screenId) =>
         set((s) => {

@@ -11,7 +11,7 @@ import {
   type OnConnect,
   type OnConnectEnd,
 } from "@xyflow/react";
-import { CircleHelp, ImagePlus, LoaderCircle, Maximize, Minus, Network, Plus, RefreshCw, SquarePlus, TriangleAlert, WifiOff } from "lucide-react";
+import { CircleHelp, Group, ImagePlus, LoaderCircle, Maximize, Minus, Network, Plus, RefreshCw, SquarePlus, TriangleAlert, WifiOff } from "lucide-react";
 import { Tip } from "@/components/bits";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -76,7 +76,9 @@ function Canvas() {
   }, [project.screens, selection, warnings, compareIds, setNodes]);
 
   // Area boxes are worked out from where the screens are right now, so they follow a screen being dragged.
+  const showAreas = useEditor((s) => s.showAreas);
   const areaNodes = useMemo<AreaNodeType[]>(() => {
+    if (!showAreas) return [];
     const areaOf = screenAreas(project.screens);
     const members = new Map<string, ScreenNodeType[]>();
     for (const n of nodes) {
@@ -102,7 +104,7 @@ function Canvas() {
         style: { pointerEvents: "none" },
       };
     });
-  }, [nodes, project.screens]);
+  }, [nodes, project.screens, showAreas]);
 
   const edges = useMemo<TransitionEdgeType[]>(() => {
     return transitionLines(project.transitions).map((group) => {
@@ -197,6 +199,7 @@ function Canvas() {
       <div className="pointer-events-none absolute top-4 right-4 z-10 flex max-w-[calc(100%-220px)] flex-wrap justify-end gap-2 whitespace-nowrap *:pointer-events-auto max-md:left-4 max-md:max-w-none">
         <LiveNotice />
         <DevicePicker />
+        <AreasButton />
         <ArrangeButton />
         <Tip label="빈 화면 추가">
           <Button variant="secondary" size="icon" className="bg-white shadow-soft" aria-label="화면 추가" onClick={() => useEditor.getState().addScreen()}>
@@ -212,6 +215,27 @@ function Canvas() {
       <Hints comparing={compareIds.length} />
       <ZoomControls />
     </ReactFlow>
+  );
+}
+
+/** Shows or hides area boxes; auto-arrange follows what is shown. */
+function AreasButton() {
+  const show = useEditor((s) => s.showAreas);
+  const hasAreas = useEditor((s) => screenAreas(s.project.screens).size > 0);
+  if (!hasAreas) return null;
+  return (
+    <Tip label={show ? "영역 숨기기 · 자동 정렬도 영역을 무시" : "영역 보기 · 자동 정렬도 영역끼리 모음"}>
+      <Button
+        variant="secondary"
+        size="icon"
+        className={cn("bg-white shadow-soft", show && "bg-brand/10 text-brand hover:bg-brand/15")}
+        aria-label="영역 보기"
+        aria-pressed={show}
+        onClick={() => useEditor.getState().setShowAreas(!show)}
+      >
+        <Group />
+      </Button>
+    </Tip>
   );
 }
 
@@ -235,7 +259,7 @@ function ArrangeButton() {
     try {
       const { autoLayout } = await import("@/lib/autoLayout");
       const { project, arrange } = useEditor.getState();
-      const areaOf = screenAreas(project.screens);
+      const areaOf = useEditor.getState().showAreas ? screenAreas(project.screens) : new Map<string, string>();
       const nodes = getNodes()
         .filter((n) => n.type === "screen")
         .map((n) => ({ id: n.id, width: n.measured?.width ?? 0, height: n.measured?.height ?? 0, area: areaOf.get(n.id) }));
