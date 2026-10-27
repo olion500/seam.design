@@ -15,11 +15,16 @@ export interface RuleResult {
   violations: Violation[];
 }
 
+// Captured controls a finger presses; headings and plain text are not.
+const PRESSABLE = new Set(["button", "link", "tab", "switch", "checkbox", "radio", "slider", "input", "textarea", "select"]);
+
 export function runRule(project: Project, rule: Rule): RuleResult {
   const screens = project.screens.flatMap((s) => {
     const spec = displaySpec(s);
     return spec ? [{ s, spec }] : [];
   });
+  // Screens imported from the running app have no spec tree, only the controls measured on their screenshot.
+  const captured = project.screens.flatMap((s) => (!displaySpec(s) && s.baseline?.elements?.length ? [{ s, elements: s.baseline.elements }] : []));
   const result = (violations: Violation[], scope = screens.length, scopeLabel: RuleResult["scopeLabel"] = "화면"): RuleResult => ({
     rule,
     scope,
@@ -38,11 +43,19 @@ export function runRule(project: Project, rule: Rule): RuleResult {
     case "touch-target": {
       const min = rule.params?.minSize ?? 48;
       return result(
-        screens.flatMap(({ s, spec }) =>
-          spec.elements
-            .filter((e) => e.kind === "button" && (e.height ?? 56) < min)
-            .map((e) => ({ screenId: s.id, message: `${s.name}: ${e.name} 높이 ${e.height}px` })),
-        ),
+        [
+          ...screens.flatMap(({ s, spec }) =>
+            spec.elements
+              .filter((e) => e.kind === "button" && (e.height ?? 56) < min)
+              .map((e) => ({ screenId: s.id, message: `${s.name}: ${e.name} 높이 ${e.height}px` })),
+          ),
+          ...captured.flatMap(({ s, elements }) =>
+            elements
+              .filter((e) => PRESSABLE.has(e.role) && Math.min(e.box.w, e.box.h) < min)
+              .map((e) => ({ screenId: s.id, message: `${s.name}: “${e.label}” ${e.box.w}×${e.box.h}px` })),
+          ),
+        ],
+        screens.length + captured.length,
       );
     }
     case "no-dead-end":
