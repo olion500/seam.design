@@ -11,7 +11,18 @@ export interface SeamConfig {
   routes: { type: "expo-router"; dir: string };
   tokens?: { file: string; exports: string[] };
   flows?: { file: string };
-  screens?: { include?: string[]; params?: Record<string, Record<string, string>> };
+  screens?: { include?: string[]; params?: Record<string, Record<string, string>>; states?: Record<string, ScreenState> };
+}
+
+/**
+ * A screen state with no URL of its own (a later step, a modal, a timer phase): open `open`,
+ * then tap each step's button by its accessible name or text. Keyed by the flow node ID.
+ */
+export interface ScreenState {
+  open: string;
+  /** The route whose file draws this state, for source mapping. */
+  route?: string;
+  steps?: { tap: string }[];
 }
 
 export const seamDir = (root: string) => join(root, ".seam");
@@ -57,8 +68,10 @@ export function buildProject({ config, routes, nodes, edges, tokens, tokenFile, 
   const device = previous?.device ?? config.app.device ?? DEFAULT_DEVICE;
 
   const screens: Screen[] = picked.map((r, i) => {
-    const node = byRoute.get(r.route);
-    const id = node?.id ?? (r.route === "/" ? "HOME" : r.route.replace(/[^\w]+/g, "_").replace(/^_|_$/g, "").toUpperCase());
+    const derived = r.route === "/" ? "HOME" : r.route.replace(/[^\w]+/g, "_").replace(/^_|_$/g, "").toUpperCase();
+    // A flow node may name the screen without writing its route (e.g. BEAN_EDIT for /bean-edit).
+    const node = byRoute.get(r.route) ?? nodes.get(derived);
+    const id = node?.id ?? derived;
     const prev = prevScreens.get(id);
     return {
       id,
@@ -74,6 +87,25 @@ export function buildProject({ config, routes, nodes, edges, tokens, tokenFile, 
       live: { url: `${config.app.url}${concreteRoute(r.route, config.screens?.params?.[r.route])}` },
     };
   });
+
+  for (const [id, state] of Object.entries(config.screens?.states ?? {})) {
+    if (screens.some((s) => s.id === id)) continue;
+    const prev = prevScreens.get(id);
+    const file = routes.find((r) => r.route === state.route)?.file;
+    const i = screens.length;
+    screens.push({
+      id,
+      name: prev?.name ?? nodes.get(id)?.name ?? id,
+      route: state.route ?? state.open,
+      position: prev?.position ?? { x: (i % 4) * 240, y: Math.floor(i / 4) * 420 },
+      size: prev?.size ?? deviceSize(device),
+      baseline: prev?.baseline ?? null,
+      variant: null,
+      states: prev?.states ?? ["기본"],
+      sources: file ? [{ path: file, note: "화면 일부" }] : [],
+      requests: prev?.requests ?? [],
+    });
+  }
 
   const ids = new Set(screens.map((s) => s.id));
   for (const s of screens) {

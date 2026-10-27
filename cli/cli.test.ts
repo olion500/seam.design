@@ -27,6 +27,7 @@ flowchart TD
 \`\`\`mermaid
 flowchart LR
   PREP1["PREP1 · 원두·장비"] -->|취소| HOME["HOME"]
+  PREP1 -->|레시피 고르기| PREP2["PREP2 · 레시피"]
 \`\`\`
 `;
 
@@ -83,6 +84,7 @@ describe("parsers", () => {
       { from: "BEAN", to: "PREP1", label: "이 원두로 추출 준비" },
       { from: "DIRECT", to: "DEV", label: "개발 URL" },
       { from: "PREP1", to: "HOME", label: "취소" },
+      { from: "PREP1", to: "PREP2", label: "레시피 고르기" },
     ]);
   });
 
@@ -123,6 +125,20 @@ describe("seam CLI round trip", () => {
     expect(p.transitions.map((t) => `${t.from}>${t.to}`)).toEqual(["HOME>PREP1", "PREP1>HOME"]);
     expect(p.screens.find((s) => s.id === "HOME")?.exitsOutside).toEqual(["UI_LAB / UI_AUDIT"]);
     expect(pendingChanges(p)).toEqual([]);
+  });
+
+  it("imports states without a URL from screens.states, with the route's file as source and no live URL", async () => {
+    const configFile = join(root, ".seam/seam.json");
+    const config = await Bun.file(configFile).json();
+    config.screens.states = { PREP2: { open: "/prepare", route: "/prepare", steps: [{ tap: "레시피 고르기" }] } };
+    await Bun.write(configFile, JSON.stringify(config));
+    await seam(root, "import");
+
+    const p = await readProject(root);
+    const state = p.screens.find((s) => s.id === "PREP2");
+    expect(state).toMatchObject({ name: "레시피", route: "/prepare", sources: [{ path: "mobile/src/app/prepare.tsx" }] });
+    expect(state?.live).toBeUndefined();
+    expect(p.transitions.map((t) => `${t.from}>${t.to}`)).toContain("PREP1>PREP2");
   });
 
   it("reports token, element and transition edits, and verify fails until the code changes", async () => {

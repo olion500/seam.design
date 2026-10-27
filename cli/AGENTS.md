@@ -22,6 +22,7 @@
 - `--repo <경로>`가 공통 플래그이고 기본값은 cwd. `SEAM_ROOT`는 이 레포 루트다.
 - 도메인 타입과 시드는 `../src/model/*`에서 상대 경로로 가져온다(`@/` 금지).
 - 대상 앱 가정: Expo Router 웹, 기본 URL `http://localhost:8081`, 토큰 파일은 `theme.ts` 계열.
+- 캡처는 화면마다 앱의 브라우저 저장 데이터를 지우고 연다(첫 실행 데이터 기준). 주소 없는 상태는 `seam.json`의 `screens.states`(흐름 노드 ID -> `open`, `route`, `steps: [{ tap }]`)로 정의하고, `tap`은 터치 입력으로 누른다. 상태 화면에는 `live` 주소가 없어 편집기가 스크린샷을 보여 준다.
 - `seam open`은 `dist/`가 없으면 먼저 `bun run build`를 하고, `SEAM_REPO`를 설정해 `server/index.ts`를 production 모드로 띄운다(기본 포트 5190).
 - `seam wait`는 0.5초 간격으로 `sent.json`을 확인한다(WSL의 /mnt 경로에서는 파일 감시가 불안정해서). 서버는 `sent.json`을 임시 파일에 쓰고 rename해 반쯤 쓴 파일을 읽지 않게 한다.
 - 검토: 편집기의 검토 창이 `change.json`과 `verify.json`을 읽고(`GET /api/repo/review`), 모두 승인하면 서버가 `seam done`(필요하면 `--force`)을 직접 실행한다(`server/index.ts`의 `finish`). 다시 요청은 `sent.json`의 `review.rejected`로 에이전트에게 간다.

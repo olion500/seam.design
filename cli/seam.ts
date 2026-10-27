@@ -106,8 +106,9 @@ async function captureScreens(root: string, project: Project, ids: string[], out
     for (const id of ids) {
       const screen = project.screens.find((s) => s.id === id);
       if (!screen?.route) throw new SeamError(`화면 ${id}이(가) 없거나 경로가 없습니다`);
-      const url = `${config.app.url}${concreteRoute(screen.route, config.screens?.params?.[screen.route])}`;
-      const shot = await browser.shoot(url);
+      const state = config.screens?.states?.[id];
+      const url = `${config.app.url}${state ? state.open : concreteRoute(screen.route, config.screens?.params?.[screen.route])}`;
+      const shot = await browser.shoot(url, state?.steps);
       mkdirSync(outDir, { recursive: true });
       const image = join(outDir, `${id}.png`);
       await Bun.write(image, shot.png);
