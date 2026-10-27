@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { LiveFrame } from "@/components/LiveFrame";
 import { ScreenView } from "@/components/ScreenView";
-import { liveStatus, useLiveApp } from "@/lib/liveApp";
+import { checkLiveApp, liveStatus, useLiveApp } from "@/lib/liveApp";
 import { StatusBadge } from "@/components/bits";
 import { TransitionPlayer } from "@/components/TransitionPlayer";
 import { screenChanges } from "@/model/diff";
@@ -17,9 +17,12 @@ export function CompareDrawer() {
   const project = useEditor((s) => s.project);
   const compareIds = useEditor((s) => s.compareIds);
   const { clearCompare, toggleCompare, select } = useEditor.getState();
-  const liveMode = useEditor((s) => s.project.render === "live");
   const firstLive = useEditor((s) => s.project.screens.find((x) => x.live)?.live?.url);
-  const live = useLiveApp((s) => liveMode && liveStatus(s, firstLive) === "up");
+  const status = useLiveApp((s) => liveStatus(s, firstLive));
+  const live = status === "up";
+  useEffect(() => {
+    if (firstLive && !status) void checkLiveApp(firstLive);
+  }, [firstLive, status]);
   const [mode, setMode] = useState<"side" | "overlay">("side");
   const [opacity, setOpacity] = useState(60);
 

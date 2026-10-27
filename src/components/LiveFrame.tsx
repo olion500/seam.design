@@ -22,9 +22,14 @@ export function LiveFrame({ screen, url, width, compact = false, interactive = t
   const scale = width / size.w;
   const target = liveSrc(url, liveOverrides({ tokens, source }));
   const [src, setSrc] = useState(target);
+  // Stays see-through until the app has loaded, so whatever sits underneath (the screenshot) shows instead of a blank frame.
+  const [ready, setReady] = useState(false);
   useEffect(() => {
     if (target === src) return;
-    const timer = setTimeout(() => setSrc(target), 400);
+    const timer = setTimeout(() => {
+      setReady(false);
+      setSrc(target);
+    }, 400);
     return () => clearTimeout(timer);
   }, [target, src]);
 
@@ -46,15 +51,20 @@ export function LiveFrame({ screen, url, width, compact = false, interactive = t
 
   return (
     <div className="flex flex-col gap-1.5">
-      <div className={cn("overflow-hidden bg-white", compact ? "rounded" : "rounded-md border")} style={{ width, height: size.h * scale }}>
+      <div className={cn("overflow-hidden", ready && "bg-white", compact ? "rounded" : "rounded-md border")} style={{ width, height: size.h * scale }}>
         <iframe
           ref={frame}
           src={src}
           title={`${screen.name} 라이브 시안`}
           loading="lazy"
           tabIndex={interactive ? undefined : -1}
-          onLoad={push}
+          onLoad={() => {
+            push();
+            setReady(true);
+          }}
           style={{
+            opacity: ready ? 1 : 0,
+            transition: "opacity 150ms",
             width: size.w,
             height: size.h,
             border: 0,

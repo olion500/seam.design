@@ -9,7 +9,6 @@ import type {
   MotionPreset,
   Point,
   Project,
-  RenderMode,
   Rule,
   Screen,
   ScreenElement,
@@ -30,12 +29,15 @@ export interface EditorState {
   selection: Selection | null;
   compareIds: string[];
   focusChange: string | null;
+  /** The screen zoomed in on the canvas, shown as the running app so it can be scrolled and tapped. */
+  liveScreen: string | null;
 
   setView: (view: View) => void;
   select: (selection: Selection | null) => void;
   toggleCompare: (screenId: string) => void;
   clearCompare: () => void;
   setFocusChange: (id: string | null) => void;
+  setLiveScreen: (id: string | null) => void;
 
   loadProject: (project: Project, saved?: boolean) => void;
   newProject: () => void;
@@ -43,7 +45,6 @@ export interface EditorState {
   markSaved: (project: Project) => void;
   renameProject: (name: string) => void;
   setDevice: (device: DeviceId) => void;
-  setRender: (render: RenderMode) => void;
 
   addScreen: (input?: { name?: string; image?: string; url?: string; position?: { x: number; y: number } }) => string;
   updateScreen: (id: string, patch: Partial<Pick<Screen, "name" | "terminal" | "states" | "position">>) => void;
@@ -80,6 +81,7 @@ export const useEditor = create<EditorState>()(
       selection: null,
       compareIds: [],
       focusChange: null,
+      liveScreen: null,
 
       setView: (view) => set({ view, selection: null }),
       select: (selection) => set({ selection, focusChange: null }),
@@ -89,9 +91,10 @@ export const useEditor = create<EditorState>()(
         }),
       clearCompare: () => set({ compareIds: [] }),
       setFocusChange: (focusChange) => set({ focusChange }),
+      setLiveScreen: (liveScreen) => set({ liveScreen }),
 
       loadProject: (project, saved = true) =>
-        set({ project, savedProject: saved ? project : null, selection: null, compareIds: [], focusChange: null }),
+        set({ project, savedProject: saved ? project : null, selection: null, compareIds: [], focusChange: null, liveScreen: null }),
       newProject: () => get().loadProject(emptyProject(), false),
       loadExample: () => get().loadProject(seedProject(), false),
       markSaved: (project) => set({ savedProject: project }),
@@ -104,11 +107,6 @@ export const useEditor = create<EditorState>()(
         set((s) => {
           s.project.device = device;
           for (const screen of s.project.screens) if (!screen.baseline?.image) screen.size = deviceSize(device);
-        }),
-
-      setRender: (render) =>
-        set((s) => {
-          s.project.render = render;
         }),
 
       addScreen: (input = {}) => {

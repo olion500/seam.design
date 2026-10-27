@@ -163,10 +163,7 @@ export interface Project {
   assets: Asset[];
   source?: ProjectSource;
   device?: DeviceId;
-  render?: RenderMode;
 }
-
-export type RenderMode = "live" | "capture";
 
 export interface TokenSource {
   path: string;

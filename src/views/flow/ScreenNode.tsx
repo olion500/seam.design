@@ -4,6 +4,7 @@ import { LiveFrame } from "@/components/LiveFrame";
 import { ScreenView } from "@/components/ScreenView";
 import { StatusBadge, WarnIcon } from "@/components/bits";
 import { deviceOf } from "@/model/devices";
+import { liveOverrides } from "@/model/tokens";
 import { screenChanges } from "@/model/diff";
 import { liveStatus, useLiveApp } from "@/lib/liveApp";
 import { useEditor } from "@/store/store";
@@ -50,9 +51,11 @@ function ScreenNodeImpl({ data, selected }: NodeProps<ScreenNodeType>) {
   const screen = useEditor((s) => s.project.screens.find((x) => x.id === data.screenId));
   const tokens = useEditor((s) => s.project.tokens);
   const focusChange = useEditor((s) => s.focusChange);
-  const liveMode = useEditor((s) => s.project.render === "live");
+  // Screenshots by default; the running app only where it shows something the screenshot cannot.
+  const tokensEdited = useEditor((s) => Object.keys(liveOverrides(s.project)).length > 0);
+  const zoomed = useEditor((s) => s.liveScreen === data.screenId);
   const appUp = useLiveApp((s) => liveStatus(s, screen?.live?.url) === "up");
-  const showLive = liveMode && appUp && !!screen?.live;
+  const showLive = appUp && !!screen?.live && (tokensEdited || zoomed);
   const device = deviceOf(useEditor((s) => s.project.device));
 
   if (!screen) return null;
@@ -91,8 +94,8 @@ function ScreenNodeImpl({ data, selected }: NodeProps<ScreenNodeType>) {
         style={{ width: thumbW, height: thumbH, borderRadius: SCREEN_RADIUS * NODE_SCALE }}
       >
         {showLive && screen.live && (
-          <div className="absolute inset-0 z-[1]">
-            <LiveFrame screen={screen} url={screen.live.url} width={thumbW} compact interactive={false} />
+          <div className={cn("absolute inset-0 z-[1]", zoomed ? "nodrag nowheel nopan" : "pointer-events-none")}>
+            <LiveFrame screen={screen} url={screen.live.url} width={thumbW} compact interactive={zoomed} />
           </div>
         )}
         <ScreenView

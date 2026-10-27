@@ -18,6 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { CompareDrawer } from "@/components/CompareDrawer";
 import { DEFAULT_DEVICE, DEVICES, type DeviceId, deviceSize } from "@/model/devices";
 import { screenChanges } from "@/model/diff";
+import { liveOverrides } from "@/model/tokens";
 import { checkLiveApp, liveStatus, useLiveApp } from "@/lib/liveApp";
 import { cn } from "@/lib/utils";
 import { useSync } from "@/store/persist";
@@ -119,16 +120,23 @@ function Canvas() {
       edgeTypes={edgeTypes}
       onNodesChange={onChange}
       onNodeDragStop={(_, node) => moveScreen(node.id, node.position)}
-      onNodeDoubleClick={(_, node) =>
-        void fitView({ nodes: [{ id: node.id }], padding: { top: "72px", bottom: "20px", x: "5%" }, maxZoom: 2.5, duration: 300 })
-      }
+      onNodeDoubleClick={(_, node) => {
+        // Zooming in on a screen shows it as the running app, so it can be scrolled and tapped.
+        const url = project.screens.find((s) => s.id === node.id)?.live?.url;
+        if (url) void checkLiveApp(url);
+        useEditor.getState().setLiveScreen(node.id);
+        void fitView({ nodes: [{ id: node.id }], padding: { top: "72px", bottom: "20px", x: "5%" }, maxZoom: 2.5, duration: 300 });
+      }}
       zoomOnDoubleClick={false}
       onNodeClick={(e, node) => {
         if (e.shiftKey) toggleCompare(node.id);
         else select({ kind: "screen", id: node.id });
       }}
       onEdgeClick={(_, edge) => select({ kind: "transition", id: edge.id })}
-      onPaneClick={() => select(null)}
+      onPaneClick={() => {
+        select(null);
+        useEditor.getState().setLiveScreen(null);
+      }}
       onConnect={onConnect}
       onConnectEnd={onConnectEnd}
       isValidConnection={(c) => c.source !== c.target}
@@ -146,7 +154,7 @@ function Canvas() {
         {project.name} · 화면 {project.screens.length}
       </div>
       <div className="pointer-events-none absolute top-4 right-4 z-10 flex max-w-[calc(100%-220px)] flex-wrap justify-end gap-2 whitespace-nowrap *:pointer-events-auto max-md:left-4 max-md:max-w-none">
-        <RenderPicker />
+        <LiveNotice />
         <DevicePicker />
         <ArrangeButton />
         <Tip label="빈 화면 추가">
@@ -202,47 +210,27 @@ function ArrangeButton() {
   );
 }
 
-function RenderPicker() {
-  const render = useEditor((s) => s.project.render ?? "capture");
+/** Checks the app only when a screen needs it, and speaks up only when an edited token cannot be shown. */
+function LiveNotice() {
   const liveUrl = useEditor((s) => s.project.screens.find((x) => x.live)?.live?.url);
+  const tokensEdited = useEditor((s) => Object.keys(liveOverrides(s.project)).length > 0);
+  const zoomed = useEditor((s) => s.liveScreen !== null);
   const status = useLiveApp((s) => liveStatus(s, liveUrl));
   useEffect(() => {
-    if (render === "live" && liveUrl && !status) void checkLiveApp(liveUrl);
-  }, [render, liveUrl, status]);
-  if (!liveUrl) return null;
+    if ((tokensEdited || zoomed) && liveUrl && !status) void checkLiveApp(liveUrl);
+  }, [tokensEdited, zoomed, liveUrl, status]);
+  if (!liveUrl || !tokensEdited || status !== "down") return null;
   return (
-    <div className="flex items-center gap-2">
-      {render === "live" && status === "down" && (
-        <Tip label={`${new URL(liveUrl).origin}에 연결할 수 없어 스크린샷을 보여 줍니다. 앱을 켜고 누르면 다시 확인합니다.`}>
-          <button
-            type="button"
-            aria-label="앱 꺼짐, 다시 확인"
-            className="inline-flex h-8 items-center gap-1.5 rounded-full bg-warn/30 px-3 text-xs"
-            onClick={() => void checkLiveApp(liveUrl)}
-          >
-            <WifiOff className="size-3.5" /> 앱 꺼짐 <RefreshCw className="size-3.5 text-muted-foreground" />
-          </button>
-        </Tip>
-      )}
-      <fieldset aria-label="렌더 방식" className="flex gap-1 rounded-lg bg-white p-1 shadow-soft">
-        {(
-          [
-            ["live", "라이브"],
-            ["capture", "스크린샷"],
-          ] as const
-        ).map(([mode, label]) => (
-          <button
-            key={mode}
-            type="button"
-            aria-pressed={render === mode}
-            onClick={() => useEditor.getState().setRender(mode)}
-            className={cn("h-8 rounded-md px-3 text-sm text-muted-foreground", render === mode && "bg-muted font-bold text-foreground")}
-          >
-            {label}
-          </button>
-        ))}
-      </fieldset>
-    </div>
+    <Tip label={`${new URL(liveUrl).origin}에 연결할 수 없어 바꾼 토큰을 화면에 보여 줄 수 없습니다. 앱을 켜고 누르면 다시 확인합니다.`}>
+      <button
+        type="button"
+        aria-label="앱 꺼짐, 다시 확인"
+        className="inline-flex h-8 items-center gap-1.5 self-center rounded-full bg-warn/30 px-3 text-xs"
+        onClick={() => void checkLiveApp(liveUrl)}
+      >
+        <WifiOff className="size-3.5" /> 앱 꺼짐 <RefreshCw className="size-3.5 text-muted-foreground" />
+      </button>
+    </Tip>
   );
 }
 
@@ -252,12 +240,10 @@ function DevicePicker() {
     const size = deviceSize(s.project.device);
     return s.project.screens.filter((x) => x.baseline?.image && (x.size.w !== size.w || x.size.h !== size.h)).length;
   });
-  // Only warn while the canvas shows screenshots; live screens already render at the device size.
-  const showingShots = useEditor((s) => (s.project.render ?? "capture") !== "live" || !s.project.screens.some((x) => x.live));
   const repo = useSync((s) => s.repo);
   return (
     <div className="flex items-center gap-2">
-      {stale > 0 && showingShots && (
+      {stale > 0 && (
         <Tip label={`기준 스크린샷 ${stale}개가 다른 기기 크기로 찍혔습니다. ${repo ? "seam capture로 다시 찍으세요." : "이 크기로 다시 올리세요."}`}>
           <button type="button" className="inline-flex h-8 cursor-default items-center gap-1.5 rounded-full bg-warn/30 px-3 text-xs">
             <TriangleAlert className="size-3.5" /> 크기 다름 {stale}
@@ -335,7 +321,15 @@ function ZoomControls() {
         <Plus />
       </Button>
       <Tip label="화면에 맞추기">
-        <Button variant="ghost" size="icon" aria-label="화면에 맞추기" onClick={() => void fitView({ padding: 0.15, maxZoom: 1, duration: 300 })}>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="화면에 맞추기"
+          onClick={() => {
+            useEditor.getState().setLiveScreen(null);
+            void fitView({ padding: 0.15, maxZoom: 1, duration: 300 });
+          }}
+        >
           <Maximize />
         </Button>
       </Tip>

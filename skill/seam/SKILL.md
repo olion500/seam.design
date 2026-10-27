@@ -61,14 +61,11 @@ The editor has an **AI에게 보내기** button (repo mode only). It saves the p
    - `review.approved: false`: `review.rejected` lists the changes sent back, each with the user's `note` and the `change` it refers to. Fix those (the approved ones stay as they are), run the repo's checks, `seam verify` again, and wait for the next review.
    - Only run `seam done` yourself when the user tells you so in the chat instead of using the editor.
 
-## Render modes and live token preview
+## Live token preview
 
-`app.render` in `.seam/seam.json` (also switchable in the editor) is `live` or `capture`:
+The editor shows the `seam capture` screenshots. It loads a screen as the running app (`app.url` + route, in an iframe) only when that adds something: while the user has edited tokens, and for the one screen the user zoomed in on. When the app is not running it keeps the screenshots. States from `screens.states` have no URL and always show their screenshot.
 
-- `live`: the editor shows each screen as the running app (`app.url` + route) in an iframe, and falls back to the screenshot when the app is not running. Baselines are still screenshots from `seam capture`; the live view is the current code.
-- `capture`: the editor shows screenshots only.
-
-In live mode the editor appends `?seam-tokens=<JSON>` to every app URL: an object of token source paths to edited values, e.g. `{"colors.primary":"#3F5A2E","typography.title":"40 / 400"}` (`{}` when nothing is edited). Apps whose tokens are CSS variables can use `seam-bridge.js` instead. For apps whose tokens are JS objects, add a development-only hook to the token module: read the parameter (keep it in sessionStorage so in-app navigation keeps it), and apply each path to the exported objects before other modules use them; for `fontSize / fontWeight` values set both fields. Never ship it in production builds, and follow the repo's rules for that code change.
+For a live screen the editor appends `?seam-tokens=<JSON>` to every app URL: an object of token source paths to edited values, e.g. `{"colors.primary":"#3F5A2E","typography.title":"40 / 400"}` (`{}` when nothing is edited). Apps whose tokens are CSS variables can use `seam-bridge.js` instead. For apps whose tokens are JS objects, add a development-only hook to the token module: read the parameter (keep it in sessionStorage so in-app navigation keeps it), and apply each path to the exported objects before other modules use them; for `fontSize / fontWeight` values set both fields. Never ship it in production builds, and follow the repo's rules for that code change.
 
 ## Other commands
 
