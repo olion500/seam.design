@@ -98,6 +98,23 @@ export interface Screen {
   area?: string;
   requests?: ChangeRequest[];
   exitsOutside?: string[];
+  /** Where pressing each control in the running app leads (`seam explore`), whether or not the flow document says so. */
+  appLinks?: AppLink[];
+  /** When `seam explore` last pressed this screen's controls; without it the screen's app links are unknown, not absent. */
+  exploredAt?: string;
+}
+
+export interface AppLink {
+  /** The control's accessible name, e.g. a tab or button label. */
+  label: string;
+  elementKey?: string;
+  /** Id of the screen it led to. */
+  to: string;
+  /**
+   * A back or close control: it returns to whichever screen came before, so it stands for a way back along every move
+   * into this screen. `to` is only where it went on a fresh load (usually the start screen) and is not a move.
+   */
+  back?: boolean;
 }
 
 export interface Point {
@@ -157,7 +174,11 @@ export type RuleCheck =
   | "token-colors"
   | "type-scale"
   | "consistent-buttons"
-  | "reduced-motion";
+  | "reduced-motion"
+  | "flow-doc"
+  | "reachable"
+  | "way-back"
+  | "flow-depth";
 
 export interface Rule {
   id: string;
@@ -166,7 +187,7 @@ export interface Rule {
   title: string;
   description: string;
   enabled: boolean;
-  params?: { minSize?: number };
+  params?: { minSize?: number; maxDepth?: number };
 }
 
 export interface Asset {

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { DEFAULT_DEVICE, type DeviceId, deviceSize } from "../src/model/devices";
 import { IMPORT_RULES } from "../src/model/rules";
 import { seedProject } from "../src/model/seed";
-import type { Project, Screen, Transition } from "../src/model/types";
+import type { AppLink, Project, Screen, Transition } from "../src/model/types";
 import type { FlowEdge, FlowNode, ParsedToken, RouteFile } from "./parse";
 
 export interface SeamConfig {
@@ -49,6 +49,41 @@ export function concreteRoute(route: string, params: Record<string, string> = {}
   return route.replace(/\[([^\]]+)\]/g, (_, k: string) => params[k] ?? `[${k}]`);
 }
 
+const pathOf = (url: string) => new URL(url, "http://seam.invalid").pathname;
+
+/**
+ * The screen a path in the app shows: the screen opened at exactly that path, else one whose route pattern matches
+ * (`/bean/[id]` for `/bean/b2`). States without their own URL are never the answer; they are reached by tapping.
+ */
+export function screenForPath(screens: Screen[], path: string): string | undefined {
+  const want = pathOf(path);
+  const opened = screens.filter((s) => s.live?.url);
+  const exact = opened.find((s) => s.live && pathOf(s.live.url) === want);
+  if (exact) return exact.id;
+  const pattern = (route: string) => new RegExp(`^${route.replace(/\[[^\]]+\]/g, "[^/]+")}$`);
+  return opened.find((s) => s.route && pattern(s.route).test(want))?.id;
+}
+
+/**
+ * Links into `screens.states` follow from the taps that open each state: the last tap leads from the screen
+ * (or state) that the earlier taps open. Found without running the app.
+ */
+export function stateLinks(config: SeamConfig, screens: Screen[]): Map<string, AppLink[]> {
+  const states = Object.entries(config.screens?.states ?? {}).filter(([id, s]) => s.steps?.length && screens.some((x) => x.id === id));
+  const taps = (s: ScreenState) => (s.steps ?? []).map((t) => t.tap).join("\u0000");
+  const out = new Map<string, AppLink[]>();
+  for (const [id, state] of states) {
+    const steps = state.steps ?? [];
+    const before = steps.slice(0, -1).map((t) => t.tap).join("\u0000");
+    const parent = steps.length === 1
+      ? screens.find((s) => s.live && pathOf(s.live.url) === pathOf(state.open) && new URL(s.live.url).search === new URL(state.open, "http://seam.invalid").search)?.id
+      : states.find(([, t]) => t.open === state.open && taps(t) === before)?.[0];
+    if (!parent) continue;
+    out.set(parent, [...(out.get(parent) ?? []), { label: steps[steps.length - 1].tap, to: id }]);
+  }
+  return out;
+}
+
 interface ImportInput {
   config: SeamConfig;
   routes: RouteFile[];
@@ -86,6 +121,8 @@ export function buildProject({ config, routes, nodes, edges, tokens, tokenFile, 
       states: prev?.states ?? ["기본"],
       sources: [{ path: r.file, note: "화면 전체" }],
       requests: prev?.requests ?? [],
+      appLinks: prev?.appLinks,
+      exploredAt: prev?.exploredAt,
       live: { url: `${config.app.url}${concreteRoute(r.route, config.screens?.params?.[r.route])}` },
     };
   });
@@ -107,6 +144,8 @@ export function buildProject({ config, routes, nodes, edges, tokens, tokenFile, 
       states: prev?.states ?? ["기본"],
       sources: file ? [{ path: file, note: "화면 일부" }] : [],
       requests: prev?.requests ?? [],
+      appLinks: prev?.appLinks,
+      exploredAt: prev?.exploredAt,
     });
   }
 

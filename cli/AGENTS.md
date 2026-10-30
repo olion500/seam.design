@@ -6,8 +6,8 @@
 ## STRUCTURE
 | File | Role |
 |------|------|
-| `seam.ts` | 진입점(`#!/usr/bin/env bun`), 인자 파싱, 명령 분기: init, import, capture, open, changes, wait, verify, done, skill install |
-| `repo.ts` | `SeamConfig`, `.seam/` 경로 헬퍼, `buildProject`(재가져오기 시 이전 화면 위치·기준·편집 유지), `SeamError` |
+| `seam.ts` | 진입점(`#!/usr/bin/env bun`), 인자 파싱, 명령 분기: init, import, capture, explore, open, changes, wait, verify, done, skill install |
+| `repo.ts` | `SeamConfig`, `.seam/` 경로 헬퍼, `buildProject`(재가져오기 시 이전 화면 위치·기준·편집·앱 이동 유지), `screenForPath`(앱 경로 -> 화면), `stateLinks`(`screens.states`의 누르기 순서 -> 상태 화면 이동), `SeamError` |
 | `parse.ts` | Expo Router 라우트, Mermaid 흐름(`ID["ID · 이름 /route"]`), 토큰 모듈 파싱 |
 | `changes.ts` | `pendingChanges`: token / element / transition 변경 묶음과 Markdown |
 | `capture.ts` | 헤드리스 브라우저 기기 에뮬레이션, DOM 요소(역할, 라벨, 박스, 불투명한 글자색·배경색, 글자 크기·굵기·글꼴) 추출. 규칙 엔진이 이 값으로 가져온 화면의 터치 영역·토큰 색·타이포 토큰·버튼 일관성을 검사 |
@@ -23,6 +23,7 @@
 - 도메인 타입과 시드는 `../src/model/*`에서 상대 경로로 가져온다(`@/` 금지).
 - 대상 앱 가정: Expo Router 웹, 기본 URL `http://localhost:8081`, 토큰 파일은 `theme.ts` 계열.
 - 캡처는 화면마다 앱의 브라우저 저장 데이터를 지우고 연다(첫 실행 데이터 기준). 주소 없는 상태는 `seam.json`의 `screens.states`(흐름 노드 ID -> `open`, `route`, `steps: [{ tap }]`)로 정의하고, `tap`은 터치 입력으로 누른다. 상태 화면에는 `live` 주소가 없어 편집기가 스크린샷을 보여 준다.
+- `seam explore`는 주소 있는 화면마다 버튼·탭·링크를 하나씩 눌러(매번 앱 데이터를 지우고 다시 열고, alert/confirm/window.open은 막음) 주소가 바뀐 곳을 `Screen.appLinks`에, 눌러 본 날을 `exploredAt`에 쓴다. 상태 화면은 누르지 않고 `stateLinks`로만 채운다. 흐름 규칙(`src/model/flows.ts`)이 문서 전이와 이 이동을 합쳐 검사한다
 - `seam open`은 `dist/`가 없으면 먼저 `bun run build`를 하고, `SEAM_REPO`를 설정해 `server/index.ts`를 production 모드로 띄운다(기본 포트 5190).
 - `seam wait`는 0.5초 간격으로 `sent.json`을 확인한다(WSL의 /mnt 경로에서는 파일 감시가 불안정해서). 서버는 `sent.json`을 임시 파일에 쓰고 rename해 반쯤 쓴 파일을 읽지 않게 한다.
 - 검토: 편집기의 검토 창이 `change.json`과 `verify.json`을 읽고(`GET /api/repo/review`), 모두 승인하면 서버가 `seam done`(필요하면 `--force`)을 직접 실행한다(`server/index.ts`의 `finish`). 다시 요청은 `sent.json`의 `review.rejected`로 에이전트에게 간다.

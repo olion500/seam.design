@@ -11,7 +11,7 @@ import {
   type OnConnect,
   type OnConnectEnd,
 } from "@xyflow/react";
-import { CircleHelp, Group, ImagePlus, LoaderCircle, Maximize, Minus, Network, Plus, RefreshCw, SquarePlus, TriangleAlert, WifiOff } from "lucide-react";
+import { CircleHelp, Footprints, Group, ImagePlus, LoaderCircle, Maximize, Minus, Network, Plus, RefreshCw, SquarePlus, TriangleAlert, WifiOff } from "lucide-react";
 import { Tip } from "@/components/bits";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -26,6 +26,7 @@ import { useRuleState } from "@/store/derived";
 import { type EditorState, useEditor } from "@/store/store";
 import { lineLabel, transitionLines } from "@/model/lines";
 import { AREA_PAD, exitScreenId, flowPage, screenAreas } from "@/model/areas";
+import { undocumented } from "@/model/flows";
 import { uploadScreenshot } from "@/store/actions";
 import { AreaNode, type AreaNodeType } from "./AreaNode";
 import { EmptyState } from "./EmptyState";
@@ -144,6 +145,29 @@ function Canvas() {
     });
   }, [nodes, project.screens, showAreas, page]);
 
+  const showAppLinks = useEditor((s) => s.showAppLinks);
+  const appOnly = useMemo<TransitionEdgeType[]>(() => {
+    if (!showAppLinks) return [];
+    return undocumented(project)
+      .filter((e) => flow.positions[e.from] && flow.positions[e.to])
+      .map((e) => ({
+        id: `app:${e.from}>${e.to}`,
+        type: "transition",
+        source: e.from,
+        target: e.to,
+        ...edgeHandles(flow.positions[e.from], flow.positions[e.to]),
+        selectable: false,
+        focusable: false,
+        markerEnd: { type: MarkerType.ArrowClosed, color: "#A0A4AB", width: 14, height: 14 },
+        data: {
+          label: e.labels[0],
+          conditional: false,
+          broken: false,
+          onAddToDoc: () => useEditor.getState().addTransitions([{ from: e.from, to: e.to, label: e.labels[0] }]),
+        },
+      }));
+  }, [project, flow, showAppLinks]);
+
   const edges = useMemo<TransitionEdgeType[]>(() => {
     return transitionLines(flow.transitions).map((group) => {
         const t = group[0];
@@ -197,7 +221,7 @@ function Canvas() {
   return (
     <ReactFlow
       nodes={[...areaNodes, ...nodes] as FlowNode[]}
-      edges={edges}
+      edges={appOnly.length ? [...edges, ...appOnly] : edges}
       nodeTypes={nodeTypes}
       edgeTypes={edgeTypes}
       onNodesChange={onChange}
@@ -217,7 +241,9 @@ function Canvas() {
         if (e.shiftKey) toggleCompare(node.id);
         else select({ kind: "screen", id: node.id });
       }}
-      onEdgeClick={(_, edge) => select({ kind: "transition", id: edge.id })}
+      onEdgeClick={(_, edge) => {
+        if (!edge.id.startsWith("app:")) select({ kind: "transition", id: edge.id });
+      }}
       onPaneClick={() => {
         select(null);
         useEditor.getState().setLiveScreen(null);
@@ -240,6 +266,7 @@ function Canvas() {
         <LiveNotice />
         <DevicePicker />
         <AreasButton />
+        <AppLinksButton />
         <ArrangeButton />
         <Tip label="빈 화면 추가">
           <Button variant="secondary" size="icon" className="bg-white shadow-soft" aria-label="화면 추가" onClick={() => useEditor.getState().addScreen()}>
@@ -275,6 +302,33 @@ function AreasButton() {
         onClick={() => useEditor.getState().setShowAreas(!show)}
       >
         <Group />
+      </Button>
+    </Tip>
+  );
+}
+
+/** Shows or hides moves seen in the running app (`seam explore`) that the flow document lacks. */
+function AppLinksButton() {
+  const show = useEditor((s) => s.showAppLinks);
+  const count = useEditor((s) => undocumented(s.project).length);
+  const explored = useEditor((s) => s.project.screens.some((x) => x.appLinks));
+  if (!explored) return null;
+  return (
+    <Tip label={show ? `문서에 없는 앱 이동 ${count}개 숨기기` : `문서에 없는 앱 이동 ${count}개 보기 · 점선`}>
+      <Button
+        variant="secondary"
+        size="icon"
+        className={cn("relative bg-white shadow-soft", show && "bg-brand/10 text-brand hover:bg-brand/15")}
+        aria-label="앱 이동 보기"
+        aria-pressed={show}
+        onClick={() => useEditor.getState().setShowAppLinks(!show)}
+      >
+        <Footprints />
+        {count > 0 && (
+          <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-change px-1 text-xs leading-none font-bold text-white">
+            {count}
+          </span>
+        )}
       </Button>
     </Tip>
   );

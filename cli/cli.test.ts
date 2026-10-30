@@ -8,6 +8,7 @@ import { Store } from "../server/db";
 import { withKeys } from "./capture";
 import { pendingChanges } from "./changes";
 import { expoRoutes, mermaidFlows, tokensFromModule } from "./parse";
+import { screenForPath, stateLinks } from "./repo";
 
 const CLI = join(import.meta.dir, "seam.ts");
 
@@ -122,7 +123,18 @@ describe("seam CLI round trip", () => {
     expect(p.screens[0].size).toEqual({ w: 402, h: 874 });
     expect(p.transitions.map((t) => `${t.from}>${t.to}`)).toEqual(["HOME>PREP1", "PREP1>HOME"]);
     expect(p.screens.find((s) => s.id === "HOME")?.exitsOutside).toEqual(["UI_LAB / UI_AUDIT"]);
-    expect(p.rules.map((r) => r.check)).toEqual(["touch-target", "no-dead-end", "token-colors", "type-scale", "consistent-buttons", "reduced-motion"]);
+    expect(p.rules.map((r) => r.check)).toEqual([
+      "touch-target",
+      "no-dead-end",
+      "token-colors",
+      "type-scale",
+      "consistent-buttons",
+      "reduced-motion",
+      "flow-doc",
+      "reachable",
+      "way-back",
+      "flow-depth",
+    ]);
     expect(pendingChanges(p)).toEqual([]);
   });
 
@@ -160,6 +172,31 @@ describe("seam CLI round trip", () => {
     expect(state).toMatchObject({ name: "레시피", route: "/prepare", sources: [{ path: "mobile/src/app/prepare.tsx" }] });
     expect(state?.live).toBeUndefined();
     expect(p.transitions.map((t) => `${t.from}>${t.to}`)).toContain("PREP1>PREP2");
+  });
+
+  it("links states from the taps that open them, maps app paths to screens, and keeps explored links on re-import", async () => {
+    const configFile = join(root, ".seam/seam.json");
+    const config = await Bun.file(configFile).json();
+    config.screens.states = {
+      PREP2: { open: "/prepare", route: "/prepare", steps: [{ tap: "레시피 고르기" }] },
+      PREP3: { open: "/prepare", route: "/prepare", steps: [{ tap: "레시피 고르기" }, { tap: "추출 설정 확인" }] },
+    };
+    await Bun.write(configFile, JSON.stringify(config));
+    await seam(root, "import");
+    const p = await readProject(root);
+
+    expect(Object.fromEntries(stateLinks(config, p.screens))).toEqual({
+      PREP1: [{ label: "레시피 고르기", to: "PREP2" }],
+      PREP2: [{ label: "추출 설정 확인", to: "PREP3" }],
+    });
+    // A back link carries a query; a state shares its route but is never where a path leads.
+    expect(["/?id=b1", "/prepare", "/nowhere"].map((path) => screenForPath(p.screens, path))).toEqual(["HOME", "PREP1", undefined]);
+
+    p.screens[0].appLinks = [{ label: "추출 준비", to: "PREP1" }];
+    p.screens[0].exploredAt = "10월 30일 확인";
+    await writeProject(root, p);
+    await seam(root, "import");
+    expect((await readProject(root)).screens[0]).toMatchObject({ appLinks: [{ label: "추출 준비", to: "PREP1" }], exploredAt: "10월 30일 확인" });
   });
 
   it("reports token, element and transition edits, and verify fails until the code changes", async () => {

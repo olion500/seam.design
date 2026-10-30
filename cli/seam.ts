@@ -2,6 +2,7 @@
 import { cpSync, existsSync, mkdirSync, renameSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { DEFAULT_DEVICE, DEVICES, type DeviceId, deviceOf } from "../src/model/devices";
+import { BACK_LABEL } from "../src/model/flows";
 import { type AgentWaiting, type Project, SENT_FILE, type SentToAgent, type VerifyReport, type VerifyResult, WAITING_FILE } from "../src/model/types";
 import { openBrowser } from "./capture";
 import { type Change, changeMarkdown, pendingChanges } from "./changes";
@@ -9,6 +10,8 @@ import { expoRoutes, loadTokens, mermaidFlows } from "./parse";
 import {
   buildProject,
   concreteRoute,
+  screenForPath,
+  stateLinks,
   configPath,
   pendingDir,
   projectPath,
@@ -29,6 +32,8 @@ const HELP = `seam — 디자인 명세 편집기 CLI (AI 에이전트용, 결�
   seam capture [화면ID...] [--device iphone|galaxy]
                                앱을 열어 기준 스크린샷과 화면 요소 저장 (앱이 떠 있어야 함)
                                기기: iphone = iPhone 18 Pro 402×874 (기본), galaxy = Galaxy S26 360×780
+  seam explore [화면ID...]     화면의 버튼·탭·링크를 하나씩 눌러 실제로 어느 화면으로 가는지 기록
+                               (앱이 떠 있어야 함, 화면마다 앱 데이터를 지우고 열어 누름)
   seam open [--port 5190]      이 레포의 .seam/을 연 편집기 서버 실행
   seam changes                 기준 대비 변경 묶음을 .seam/changes/pending/에 쓰고 출력
   seam wait [--timeout 초]     편집기의 'AI에게 보내기'를 기다렸다가 보낸 말과 변경 묶음을 출력
@@ -157,6 +162,55 @@ async function cmdCapture(root: string, args: Args) {
   }
   await writeJSON(projectPath(root), project);
   print({ device: deviceOf(project.device).name, captured: results.map(({ id, url, image, elements, shot }) => ({ id, url, image, elements, size: shot.size })) });
+}
+
+/** Controls a finger presses to move on; fields, sliders and switches change values instead. */
+const NAVIGABLE = new Set(["button", "link", "tab"]);
+
+
+async function cmdExplore(root: string, args: Args) {
+  const config = await readJSON<SeamConfig>(configPath(root));
+  const project = await readJSON<Project>(projectPath(root));
+  const ids = args._.length ? args._ : project.screens.map((s) => s.id);
+  const fromStates = stateLinks(config, project.screens);
+  const pressable = project.screens.filter((s) => ids.includes(s.id) && s.live?.url && s.baseline?.elements?.length);
+  if (pressable.length) await appReachable(config);
+  const browser = pressable.length ? await openBrowser(deviceOf(project.device)) : null;
+  const unknown: { screen: string; label: string; path: string }[] = [];
+  try {
+    for (const screen of project.screens.filter((s) => ids.includes(s.id))) {
+      const links = [...(fromStates.get(screen.id) ?? [])];
+      if (browser && screen.live && pressable.includes(screen)) {
+        // Same-named controls open the same thing; the first stands for the rest.
+        const seen = new Set<string>();
+        for (const e of screen.baseline?.elements ?? []) {
+          if (!NAVIGABLE.has(e.role) || seen.has(e.label)) continue;
+          seen.add(e.label);
+          // Back and close controls return to the previous screen. Each screen opens fresh with nothing before it, where
+          // they fall back to the start screen, so they are recorded as a way back instead of being pressed.
+          if (BACK_LABEL.test(e.label)) {
+            links.push({ label: e.label, elementKey: e.key, to: screen.id, back: true });
+            continue;
+          }
+          const path = await browser.press(screen.live.url, e.label);
+          if (!path) continue;
+          const to = screenForPath(project.screens, path);
+          if (!to) unknown.push({ screen: screen.id, label: e.label, path });
+          else if (to !== screen.id && !links.some((l) => l.to === to && l.label === e.label)) links.push({ label: e.label, elementKey: e.key, to });
+        }
+      }
+      // States are not pressed (each would replay its taps); they only gain the links their taps define.
+      if (links.length || pressable.includes(screen)) screen.appLinks = links;
+      if (pressable.includes(screen)) screen.exploredAt = `${today()} 확인`;
+    }
+  } finally {
+    browser?.close();
+  }
+  await writeJSON(projectPath(root), project);
+  print({
+    explored: project.screens.filter((s) => ids.includes(s.id) && s.appLinks).map((s) => ({ id: s.id, links: s.appLinks?.map((l) => `${l.label} -> ${l.to}`) })),
+    ...(unknown.length && { unknown, hint: "가져오지 않은 화면으로 가는 이동입니다. 필요하면 seam.json의 screens.include에 더하세요" }),
+  });
 }
 
 async function cmdOpen(root: string, args: Args) {
@@ -324,6 +378,8 @@ async function main() {
       return cmdImport(root);
     case "capture":
       return cmdCapture(root, args);
+    case "explore":
+      return cmdExplore(root, args);
     case "open":
       return cmdOpen(root, args);
     case "changes":

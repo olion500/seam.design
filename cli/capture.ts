@@ -152,6 +152,28 @@ export async function openBrowser(device: Device) {
       const png = new Uint8Array(await (await view.screenshot()).arrayBuffer());
       return { png, elements, size };
     },
+    /**
+     * Opens `url` fresh, presses the control named `label` and returns the path the app shows afterwards, or null when
+     * the control is gone or the path stays. Dialogs and new windows are stubbed so a press cannot stall the page.
+     */
+    async press(url: string, label: string): Promise<string | null> {
+      await view.cdp("Storage.clearDataForOrigin", { origin: new URL(url).origin, storageTypes: "local_storage,indexeddb,session_storage" });
+      await view.navigate(url);
+      await view.evaluate(SETTLE);
+      await view.evaluate("(() => { window.alert = () => {}; window.confirm = () => false; window.prompt = () => null; window.open = () => null; return 1; })()");
+      const before = String(await view.evaluate("location.pathname"));
+      const at = await view.evaluate(FIND(label));
+      if (!at) return null;
+      const { x, y } = JSON.parse(String(at)) as { x: number; y: number };
+      await view.cdp("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+      await view.cdp("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      const after = await view.evaluate(`new Promise((resolve) => {
+        const start = Date.now();
+        const tick = () => (location.pathname !== ${JSON.stringify(before)} || Date.now() - start > 2000 ? resolve(location.pathname) : setTimeout(tick, 100));
+        tick();
+      })`);
+      return after === before ? null : String(after);
+    },
     close: () => view.close(),
   };
 }

@@ -1,7 +1,19 @@
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, type Edge, type EdgeProps } from "@xyflow/react";
+import { Plus } from "lucide-react";
 import type { Point } from "@/model/types";
 
-export type TransitionEdgeType = Edge<{ label: string; conditional: boolean; broken: boolean; route?: Point[]; labelAt?: Point }, "transition">;
+export type TransitionEdgeType = Edge<
+  {
+    label: string;
+    conditional: boolean;
+    broken: boolean;
+    route?: Point[];
+    labelAt?: Point;
+    /** A move seen in the running app that the flow document lacks; its label writes it into the document. */
+    onAddToDoc?: () => void;
+  },
+  "transition"
+>;
 
 const CORNER = 10;
 
@@ -38,7 +50,8 @@ export function TransitionEdge({ id, sourceX, sourceY, targetX, targetY, sourceP
       : getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
   // Auto-arrange leaves room for the label; elsewhere it sits in the middle of the line.
   const [labelX, labelY] = data?.route && data.labelAt ? [data.labelAt.x, data.labelAt.y] : [midX, midY];
-  const color = selected ? "var(--brand)" : data?.broken ? "var(--warn)" : "#666";
+  const app = !!data?.onAddToDoc;
+  const color = selected ? "var(--brand)" : data?.broken ? "var(--warn)" : app ? "#A0A4AB" : "#666";
   return (
     <>
       <BaseEdge
@@ -46,9 +59,24 @@ export function TransitionEdge({ id, sourceX, sourceY, targetX, targetY, sourceP
         path={path}
         markerEnd={markerEnd}
         interactionWidth={16}
-        style={{ stroke: color, strokeWidth: selected ? 2.5 : 2, strokeDasharray: data?.conditional ? "6 6" : undefined }}
+        style={{ stroke: color, strokeWidth: selected ? 2.5 : app ? 1.5 : 2, strokeDasharray: app ? "2 5" : data?.conditional ? "6 6" : undefined }}
       />
-      {data?.label && (
+      {data?.onAddToDoc && (
+        <EdgeLabelRenderer>
+          <button
+            type="button"
+            title="앱에만 있는 이동 · 눌러서 흐름 문서에 추가"
+            aria-label={`${data.label} 문서에 추가`}
+            onClick={data.onAddToDoc}
+            className="nodrag nopan pointer-events-auto absolute flex items-center gap-0.5 rounded-full border border-dashed border-[#A0A4AB] bg-canvas px-1.5 text-xs leading-4 whitespace-nowrap text-muted-foreground hover:border-brand hover:text-brand"
+            style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)` }}
+          >
+            <Plus className="size-3" />
+            {data.label}
+          </button>
+        </EdgeLabelRenderer>
+      )}
+      {data?.label && !data.onAddToDoc && (
         <EdgeLabelRenderer>
           <div
             className="nodrag nopan pointer-events-none absolute rounded whitespace-nowrap bg-canvas px-1.5 text-xs leading-4 text-muted-foreground"

@@ -1,4 +1,5 @@
 import { displaySpec } from "./diff";
+import { distances, flowGraph, reversed, startScreen, unconfirmed, undocumented } from "./flows";
 import { isHex } from "./tokens";
 import type { CapturedElement, Project, Rule, Screen } from "./types";
 
@@ -11,6 +12,10 @@ export const RULE_TEMPLATES: Omit<Rule, "id">[] = [
   { check: "type-scale", category: "토큰", title: "글자는 타이포 토큰으로만", description: "화면의 모든 글자 크기·굵기가 타이포그래피 토큰 중 하나다.", enabled: true },
   { check: "consistent-buttons", category: "일관성", title: "같은 버튼은 같은 색", description: "이름이 같은 버튼은 모든 화면에서 같은 배경색과 글자색을 쓴다.", enabled: true },
   { check: "reduced-motion", category: "모션", title: "모션 줄이기 대체 동작", description: "이동이 있는 전환은 모두 대체 동작을 가진다.", enabled: true },
+  { check: "flow-doc", category: "흐름", title: "흐름 문서가 앱과 같음", description: "앱에서 눌러 본 이동이 모두 흐름 문서에 있고, 문서의 이동은 앱에서 찾을 수 있다.", enabled: true },
+  { check: "reachable", category: "흐름", title: "모든 화면에 갈 수 있음", description: "시작 화면에서 모든 화면으로 갈 길이 있다.", enabled: true },
+  { check: "way-back", category: "흐름", title: "시작 화면으로 돌아올 수 있음", description: "어느 화면에서든 시작 화면으로 돌아갈 길이 있다.", enabled: true },
+  { check: "flow-depth", category: "흐름", title: "너무 깊은 화면 없음", description: "시작 화면에서 몇 번 안에 모든 화면에 닿는다.", enabled: true, params: { maxDepth: 4 } },
 ];
 
 /** single-primary needs a designed spec (button variants); a screenshot cannot tell which button is the main one. */
@@ -30,6 +35,8 @@ export interface Violation {
   color?: string;
   /** What to ask for, as the note of a change request on `elementKey`. */
   fix?: string;
+  /** A move to write into the flow document, when that is the fix. */
+  transition?: { from: string; to: string; label: string };
 }
 
 /** Change requests that would fix these violations, leaving out those the screen already has. */
@@ -82,6 +89,7 @@ export function runRule(project: Project, rule: Rule): RuleResult {
   });
   // Screens imported from the running app have no spec tree, only the controls measured on their screenshot.
   const captured = project.screens.flatMap((s) => (!displaySpec(s) && s.baseline?.elements?.length ? [{ s, elements: s.baseline.elements }] : []));
+  const graph = flowGraph(project);
   const result = (violations: Violation[], scope = screens.length, scopeLabel: RuleResult["scopeLabel"] = "화면"): RuleResult => ({
     rule,
     scope,
@@ -126,7 +134,7 @@ export function runRule(project: Project, rule: Rule): RuleResult {
     case "no-dead-end":
       return result(
         project.screens
-          .filter((s) => !s.terminal && !s.exitsOutside?.length && !project.transitions.some((t) => t.from === s.id))
+          .filter((s) => !s.terminal && !s.exitsOutside?.length && !graph.get(s.id)?.size)
           .map((s) => ({ screenId: s.id, message: `${s.name}: 나가는 전이 없음` })),
         project.screens.length,
       );
@@ -223,6 +231,50 @@ export function runRule(project: Project, rule: Rule): RuleResult {
         project.transitions.length,
         "전이",
       );
+    }
+    case "flow-doc": {
+      const name = (id: string) => project.screens.find((s) => s.id === id)?.name ?? id;
+      return result(
+        [
+          ...undocumented(project).map((e) => ({
+            screenId: e.from,
+            elementKey: e.elementKey,
+            message: `${name(e.from)}: “${e.labels[0]}” → ${name(e.to)} (문서에 없음)`,
+            // A tab bar makes the same move from every tab, so it is one gap in the document.
+            group: `doc ${e.to} ${e.labels[0]}`,
+            problem: `문서에 없음: “${e.labels[0]}” → ${name(e.to)}`,
+            transition: { from: e.from, to: e.to, label: e.labels[0] },
+          })),
+          ...unconfirmed(project).map((t) => ({
+            screenId: t.from,
+            message: `${name(t.from)}: 문서의 “${t.label}” → ${name(t.to)}를 앱에서 못 찾음`,
+            problem: `앱에서 못 찾음: “${t.label}” → ${name(t.to)}`,
+          })),
+        ],
+        project.screens.filter((s) => s.exploredAt).length,
+      );
+    }
+    case "reachable":
+    case "way-back":
+    case "flow-depth": {
+      const start = startScreen(project);
+      if (!start) return result([], 0);
+      const d = distances(rule.check === "way-back" ? reversed(graph) : graph, start.id);
+      const max = rule.params?.maxDepth ?? 4;
+      const others = project.screens.filter((s) => s.id !== start.id);
+      const violations =
+        rule.check === "flow-depth"
+          ? others.flatMap((s) => {
+              const n = d.get(s.id);
+              return n !== undefined && n > max ? [{ screenId: s.id, message: `${s.name}: ${start.name}에서 ${n}번 이동`, problem: `${start.name}에서 ${n}번 이동` }] : [];
+            })
+          : others
+              .filter((s) => !d.has(s.id))
+              .map((s) => ({
+                screenId: s.id,
+                message: rule.check === "reachable" ? `${s.name}: ${start.name}에서 갈 길 없음` : `${s.name}: ${start.name}으로 돌아갈 길 없음`,
+              }));
+      return result(violations, project.screens.length);
     }
   }
 }

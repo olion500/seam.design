@@ -33,11 +33,14 @@ export interface EditorState {
   liveScreen: string | null;
   /** Feature area boxes on the canvas; auto-arrange keeps areas together only while they are shown. */
   showAreas: boolean;
+  /** Moves seen in the running app that the flow document lacks, drawn as dotted lines. */
+  showAppLinks: boolean;
   /** The feature area whose own flow page is open; null shows every screen. */
   areaPage: string | null;
 
   setView: (view: View) => void;
   setShowAreas: (show: boolean) => void;
+  setShowAppLinks: (show: boolean) => void;
   setAreaPage: (area: string | null) => void;
   select: (selection: Selection | null) => void;
   toggleCompare: (screenId: string) => void;
@@ -75,6 +78,8 @@ export interface EditorState {
   removeRequest: (screenId: string, requestId: string) => void;
 
   addTransition: (t: Pick<Transition, "from" | "to"> & Partial<Transition>) => string;
+  /** Writes moves seen in the app into the flow document as one undo step, leaving the selection alone. */
+  addTransitions: (list: { from: string; to: string; label: string }[]) => void;
   updateTransition: (id: string, patch: Partial<Transition>) => void;
   removeTransition: (id: string) => void;
 
@@ -95,12 +100,17 @@ export const useEditor = create<EditorState>()(
       focusChange: null,
       liveScreen: null,
       showAreas: localStorage.getItem("seam:showAreas") !== "0",
+      showAppLinks: localStorage.getItem("seam:showAppLinks") !== "0",
       areaPage: null,
 
       setView: (view) => set({ view, selection: null }),
       setShowAreas: (showAreas) => {
         localStorage.setItem("seam:showAreas", showAreas ? "1" : "0");
         set({ showAreas });
+      },
+      setShowAppLinks: (showAppLinks) => {
+        localStorage.setItem("seam:showAppLinks", showAppLinks ? "1" : "0");
+        set({ showAppLinks });
       },
       setAreaPage: (areaPage) => set({ areaPage, liveScreen: null }),
       select: (selection) => set({ selection, focusChange: null }),
@@ -262,6 +272,20 @@ export const useEditor = create<EditorState>()(
         });
         return id;
       },
+      addTransitions: (list) =>
+        set((s) => {
+          for (const { from, to, label } of list)
+            s.project.transitions.push({
+              id: newId(),
+              from,
+              to,
+              label,
+              trigger: label,
+              condition: "",
+              conditional: false,
+              motionId: s.project.motions[0]?.id ?? "none",
+            });
+        }),
       updateTransition: (id, patch) =>
         set((s) => {
           const t = s.project.transitions.find((x) => x.id === id);

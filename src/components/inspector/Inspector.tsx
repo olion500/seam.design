@@ -1,11 +1,11 @@
-import { Check, MessageSquarePlus, MousePointerClick, TriangleAlert } from "lucide-react";
+import { Check, MessageSquarePlus, MousePointerClick, Plus, TriangleAlert } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Eyebrow, Field, Prop, Section, Tip, Toggle, blurOnEnter, quietInput, selectClass } from "@/components/bits";
 import { ScreenView } from "@/components/ScreenView";
 import { TransitionPlayer } from "@/components/TransitionPlayer";
 import { imageSrc } from "@/lib/api";
 import { displaySpec } from "@/model/diff";
-import { fixRequests, groupViolations } from "@/model/rules";
+import { fixRequests, groupViolations, type Violation } from "@/model/rules";
 import { isHex, tokensInSpec } from "@/model/tokens";
 import type { Direction, EasingName, MotionKind, MotionPreset, Rule, Screen, Token, Transition } from "@/model/types";
 import { useRuleState } from "@/store/derived";
@@ -378,9 +378,29 @@ function ElementCrop({ screen, elementKey, color }: { screen?: Screen; elementKe
   );
 }
 
-/** Turns a problem into change requests on every screen it shows up on, for the agent to pick up. */
-function FixButton({ fixable, todo }: { fixable: boolean; todo: ReturnType<typeof fixRequests> }) {
-  if (!fixable) return null;
+/**
+ * Fixes a problem on every screen it shows up on: a change request for the agent, or, for a move the app makes that
+ * the flow document lacks, the move written into the document (an undocumented move disappears once written).
+ */
+function FixButton({ violations }: { violations: Violation[] }) {
+  const project = useEditor((s) => s.project);
+  const moves = violations.flatMap((v) => (v.transition ? [v.transition] : []));
+  if (moves.length) {
+    return (
+      <Tip label={`흐름 문서에 추가 · 이동 ${moves.length}개`} side="left">
+        <button
+          type="button"
+          aria-label="문서에 추가"
+          onClick={() => useEditor.getState().addTransitions(moves)}
+          className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <Plus className="size-4" />
+        </button>
+      </Tip>
+    );
+  }
+  if (!violations.some((v) => v.fix && v.elementKey)) return null;
+  const todo = fixRequests(project, violations);
   const done = todo.length === 0;
   const screens = new Set(todo.map((t) => t.screenId)).size;
   return (
@@ -424,6 +444,19 @@ function RuleInspector({ rule }: { rule: Rule }) {
             />
           </Field>
         )}
+        {rule.check === "flow-depth" && (
+          <Field label="최대 이동 횟수">
+            <Input
+              onKeyDown={blurOnEnter}
+              className={cn("h-9", quietInput)}
+              type="number"
+              min={1}
+              max={12}
+              value={rule.params?.maxDepth ?? 4}
+              onChange={(e) => ed.updateRule(rule.id, { params: { maxDepth: Number(e.target.value) } })}
+            />
+          </Field>
+        )}
       </Section>
       <Section title={`고칠 것 ${problems.length}`}>
         {problems.length ? (
@@ -456,7 +489,7 @@ function RuleInspector({ rule }: { rule: Rule }) {
                       </Tip>
                     )}
                   </button>
-                  <FixButton fixable={violations.some((v) => v.fix && v.elementKey)} todo={fixRequests(project, violations)} />
+                  <FixButton violations={violations} />
                 </li>
               );
             })}
