@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { RULE_TEMPLATES } from "@/model/rules";
+import { groupViolations, RULE_TEMPLATES } from "@/model/rules";
 import { useRuleState } from "@/store/derived";
 import { useEditor } from "@/store/store";
 import { cn } from "@/lib/utils";
@@ -13,8 +13,7 @@ export function RulesView() {
   const { select, addRule, updateRule } = useEditor.getState();
   const { results } = useRuleState();
   const [adding, setAdding] = useState(false);
-  const total = results.reduce((n, r) => n + r.violations.length, 0);
-  const screenName = (id?: string) => project.screens.find((s) => s.id === id)?.name;
+  const total = results.reduce((n, r) => n + groupViolations(r.violations).length, 0);
   const addable = RULE_TEMPLATES.filter((t) => !project.rules.some((r) => r.check === t.check));
 
   return (
@@ -23,7 +22,7 @@ export function RulesView() {
         <div className="flex flex-col gap-1">
           <h2 className="text-xl font-bold">규칙 {project.rules.length}</h2>
           <span className="text-sm text-muted-foreground">
-            위반 {total}건 · 화면 {project.screens.length}개 검사
+            고칠 것 {total}건 · 화면 {project.screens.length}개 검사
           </span>
         </div>
         {addable.length > 0 && (
@@ -36,8 +35,8 @@ export function RulesView() {
       <ul className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
         {results.map(({ rule, violations, scope, scopeLabel }) => {
           const active = selection?.kind === "rule" && selection.id === rule.id;
-          const names = [...new Set(violations.map((v) => screenName(v.screenId) ?? v.message.split(":")[0]))];
-          const where = names.length > 3 ? `${names.slice(0, 3).join(", ")} 외 ${names.length - 3}곳` : names.join(", ");
+          const problems = groupViolations(violations).length;
+          const places = new Set(violations.map((v) => v.screenId ?? v.transitionId)).size;
           return (
             <li key={rule.id}>
               <article
@@ -71,7 +70,7 @@ export function RulesView() {
                       !rule.enabled ? "bg-chip" : violations.length ? "bg-warn" : "bg-muted",
                     )}
                   >
-                    {!rule.enabled ? "꺼짐" : violations.length ? `위반 ${violations.length} · ${where}` : "모두 통과"}
+                    {!rule.enabled ? "꺼짐" : violations.length ? `고칠 것 ${problems} · ${scopeLabel} ${places}곳` : "모두 통과"}
                   </span>
                   <label className="relative z-10 flex shrink-0 items-center gap-1.5 text-xs">
                     <input type="checkbox" checked={rule.enabled} onChange={(e) => updateRule(rule.id, { enabled: e.target.checked })} />

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runRule } from "./rules";
+import { collectWarnings, groupViolations, runRule, runRules } from "./rules";
 import { emptyProject } from "./seed";
 import type { CapturedElement, Project, Rule, Screen } from "./types";
 
@@ -65,6 +65,42 @@ describe("rules on screens captured from the app", () => {
       ],
     };
     expect(messages(project, rule("consistent-buttons"))).toEqual(["C: “저장” 버튼 배경 #C0392B · 글자 #FFFFFF, 다른 곳은 배경 #657852 · 글자 #FFFFFF"]);
+  });
+
+  it("flags text sizes and weights off the type tokens once per screen", () => {
+    const text = (label: string, size: number, weight = 400) => el("text", label, 100, 20, { font: { size, weight } });
+    const project = {
+      ...emptyProject(),
+      tokens: [
+        { name: "body", kind: "type" as const, value: "18 / 400" },
+        { name: "title", kind: "type" as const, value: "36/400" },
+      ],
+      screens: [captured("HOME", [text("본문", 18), text("제목", 36), text("작은 글", 13), text("또 작은 글", 13), text("굵은 본문", 18, 700)])],
+    };
+    expect(messages(project, rule("type-scale"))).toEqual(["HOME: 토큰에 없는 글자 13 / 400 (“작은 글” 외 1곳)", "HOME: 토큰에 없는 글자 18 / 700 (“굵은 본문”)"]);
+    expect(messages({ ...project, tokens: [] }, rule("type-scale"))).toEqual([]);
+  });
+
+  it("counts one cause shared by many screens once, and keeps it off the screens' warning dots", () => {
+    const back = (label: string) => el("button", label, 30, 30);
+    const project = {
+      ...emptyProject(),
+      rules: [{ ...rule("touch-target", { minSize: 44 }), id: "t" }],
+      screens: [
+        captured("A", [back("(tabs), back")]),
+        captured("B", [back("(tabs), back")]),
+        captured("C", [back("한 잔 준비, back"), el("link", "더 보기", 60, 20)]),
+      ],
+    };
+    const results = runRules(project);
+    const problems = groupViolations(results[0].violations);
+    expect(problems.map((p) => [p.problem, p.violations.length])).toEqual([
+      ["버튼 30×30px (“(tabs), back”)", 3],
+      ["링크 60×20px (“더 보기”)", 1],
+    ]);
+    const dots = collectWarnings(project, results).byScreen;
+    expect([...dots.keys()]).toEqual(["C"]);
+    expect(dots.get("C")).toEqual(["규칙 위반: C: “더 보기” 60×20px"]);
   });
 
   it("leaves out chips whose color shows what is picked", () => {

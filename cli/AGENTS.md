@@ -10,7 +10,7 @@
 | `repo.ts` | `SeamConfig`, `.seam/` 경로 헬퍼, `buildProject`(재가져오기 시 이전 화면 위치·기준·편집 유지), `SeamError` |
 | `parse.ts` | Expo Router 라우트, Mermaid 흐름(`ID["ID · 이름 /route"]`), 토큰 모듈 파싱 |
 | `changes.ts` | `pendingChanges`: token / element / transition 변경 묶음과 Markdown |
-| `capture.ts` | 헤드리스 브라우저 기기 에뮬레이션, DOM 요소(역할, 라벨, 박스, 불투명한 글자색·배경색) 추출. 규칙 엔진이 이 값으로 가져온 화면의 터치 영역·토큰 색·버튼 일관성을 검사 |
+| `capture.ts` | 헤드리스 브라우저 기기 에뮬레이션, DOM 요소(역할, 라벨, 박스, 불투명한 글자색·배경색, 글자 크기·굵기·글꼴) 추출. 규칙 엔진이 이 값으로 가져온 화면의 터치 영역·토큰 색·타이포 토큰·버튼 일관성을 검사 |
 | `cli.test.ts` | bun:test. 임시 디렉터리에 가짜 레포를 만들어 테스트 |
 
 ## `.seam/` LAYOUT (대상 레포)

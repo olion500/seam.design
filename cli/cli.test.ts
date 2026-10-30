@@ -122,7 +122,7 @@ describe("seam CLI round trip", () => {
     expect(p.screens[0].size).toEqual({ w: 402, h: 874 });
     expect(p.transitions.map((t) => `${t.from}>${t.to}`)).toEqual(["HOME>PREP1", "PREP1>HOME"]);
     expect(p.screens.find((s) => s.id === "HOME")?.exitsOutside).toEqual(["UI_LAB / UI_AUDIT"]);
-    expect(p.rules.map((r) => r.check)).toEqual(["touch-target", "no-dead-end", "token-colors", "consistent-buttons", "reduced-motion"]);
+    expect(p.rules.map((r) => r.check)).toEqual(["touch-target", "no-dead-end", "token-colors", "type-scale", "consistent-buttons", "reduced-motion"]);
     expect(pendingChanges(p)).toEqual([]);
   });
 

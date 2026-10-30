@@ -1,9 +1,10 @@
 import { MousePointerClick } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Eyebrow, Field, Prop, Section, Toggle, blurOnEnter, quietInput, selectClass } from "@/components/bits";
+import { Eyebrow, Field, Prop, Section, Tip, Toggle, blurOnEnter, quietInput, selectClass } from "@/components/bits";
 import { ScreenView } from "@/components/ScreenView";
 import { TransitionPlayer } from "@/components/TransitionPlayer";
 import { displaySpec } from "@/model/diff";
+import { groupViolations } from "@/model/rules";
 import { isHex, tokensInSpec } from "@/model/tokens";
 import type { Direction, EasingName, MotionKind, MotionPreset, Rule, Token, Transition } from "@/model/types";
 import { useRuleState } from "@/store/derived";
@@ -347,6 +348,9 @@ function RuleInspector({ rule }: { rule: Rule }) {
   const { results } = useRuleState();
   const ed = useEditor.getState();
   const result = results.find((r) => r.rule.id === rule.id);
+  const problems = groupViolations(result?.violations ?? []);
+  const screens = useEditor((s) => s.project.screens);
+  const screenName = (id?: string) => screens.find((s) => s.id === id)?.name;
   return (
     <>
       <Header eyebrow={`규칙 · ${rule.category}`} title={rule.title} sub={rule.description} />
@@ -366,24 +370,37 @@ function RuleInspector({ rule }: { rule: Rule }) {
           </Field>
         )}
       </Section>
-      <Section title={`위반 ${result?.violations.length ?? 0}`}>
-        {result?.violations.length ? (
-          <ul className="flex flex-col gap-1 text-sm">
-            {result.violations.map((v) => (
-              <li key={`${v.screenId ?? v.transitionId}-${v.message}`}>
-                <button
-                  type="button"
-                  className="text-left hover:text-brand"
-                  onClick={() => {
-                    ed.setView("flow");
-                    if (v.screenId) ed.select({ kind: "screen", id: v.screenId });
-                    else if (v.transitionId) ed.select({ kind: "transition", id: v.transitionId });
-                  }}
-                >
-                  {v.message}
-                </button>
-              </li>
-            ))}
+      <Section title={`고칠 것 ${problems.length}`}>
+        {problems.length ? (
+          <ul className="flex flex-col gap-3 text-sm">
+            {problems.map(({ problem, violations }) => {
+              const first = violations[0];
+              const names = [...new Set(violations.map((v) => screenName(v.screenId) ?? v.message.split(":")[0]))];
+              return (
+                <li key={`${first.screenId ?? first.transitionId}-${first.message}`} className="flex flex-col gap-0.5">
+                  <button
+                    type="button"
+                    className="text-left hover:text-brand"
+                    onClick={() => {
+                      ed.setView("flow");
+                      if (first.screenId) ed.select({ kind: "screen", id: first.screenId });
+                      else if (first.transitionId) ed.select({ kind: "transition", id: first.transitionId });
+                    }}
+                  >
+                    {problem}
+                  </button>
+                  {names.length > 1 ? (
+                    <Tip label={names.join(", ")} side="left">
+                      <span tabIndex={-1} className="self-start text-xs text-muted-foreground underline decoration-dotted underline-offset-4">
+                        화면 {names.length}곳 공통
+                      </span>
+                    </Tip>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">{names[0]}</span>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <p className="text-sm text-muted-foreground">{rule.enabled ? "모두 통과" : "꺼져 있음"}</p>

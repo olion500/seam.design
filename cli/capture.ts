@@ -28,12 +28,17 @@ const EXTRACT = `(() => {
     if (a < 1) return undefined;
     return '#' + [r, g, b].map((v) => Math.round(v).toString(16).padStart(2, '0')).join('').toUpperCase();
   };
-  // The color of the control's own text, if it has any (an icon-only button has none).
-  const textColor = (el) => {
+  // The element that styles the control's own text, if it has any (an icon-only button has none).
+  const textBox = (el) => {
     const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-    for (let n = walk.nextNode(); n; n = walk.nextNode()) if (n.textContent.trim()) return hex(getComputedStyle(n.parentElement).color);
-    return el.value ? hex(getComputedStyle(el).color) : undefined;
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) if (n.textContent.trim()) return n.parentElement;
+    return el.value ? el : undefined;
   };
+  const fontOf = (cs) => ({
+    size: Math.round(parseFloat(cs.fontSize) * 2) / 2,
+    weight: Number(cs.fontWeight) || 400,
+    family: cs.fontFamily.split(',')[0].replace(/["']/g, '').trim() || undefined,
+  });
   // The fill that covers the control: its own, or that of an inner box about as big (e.g. a pressable wrapping a view).
   const fill = (el, r) => {
     for (const n of [el, ...[...el.querySelectorAll('*')].slice(0, 30)]) {
@@ -49,10 +54,11 @@ const EXTRACT = `(() => {
     if (!r || !onTop(el, r)) return;
     const label = (el.getAttribute('aria-label') || el.innerText || el.value || el.getAttribute('placeholder') || '').replace(/\\s+/g, ' ').trim().slice(0, 80);
     if (!label) return;
-    const color = textColor(el), background = fill(el, r);
+    const text = textBox(el), cs = text && getComputedStyle(text);
+    const color = cs && hex(cs.color), background = fill(el, r);
     out.push({
       role, label, box: { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) },
-      ...(color && { color }), ...(background && { background }),
+      ...(color && { color }), ...(background && { background }), ...(cs && { font: fontOf(cs) }),
     });
   };
   for (const el of document.querySelectorAll(sel)) {

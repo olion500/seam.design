@@ -8,6 +8,7 @@ export const RULE_TEMPLATES: Omit<Rule, "id">[] = [
   { check: "touch-target", category: "접근성", title: "터치 영역 44px 이상", description: "누를 수 있는 요소는 가로·세로 44px 이상.", enabled: true, params: { minSize: 44 } },
   { check: "no-dead-end", category: "흐름", title: "모든 화면에 나가는 전이", description: "마지막 화면을 빼고 막다른 화면이 없어야 한다.", enabled: true },
   { check: "token-colors", category: "토큰", title: "색은 토큰으로만", description: "화면의 모든 색이 디자인 시스템 토큰에 매핑된다.", enabled: true },
+  { check: "type-scale", category: "토큰", title: "글자는 타이포 토큰으로만", description: "화면의 모든 글자 크기·굵기가 타이포그래피 토큰 중 하나다.", enabled: true },
   { check: "consistent-buttons", category: "일관성", title: "같은 버튼은 같은 색", description: "이름이 같은 버튼은 모든 화면에서 같은 배경색과 글자색을 쓴다.", enabled: true },
   { check: "reduced-motion", category: "모션", title: "모션 줄이기 대체 동작", description: "이동이 있는 전환은 모두 대체 동작을 가진다.", enabled: true },
 ];
@@ -19,7 +20,34 @@ export interface Violation {
   screenId?: string;
   transitionId?: string;
   message: string;
+  /** Same key = same cause (e.g. one shared header button), so it is counted and fixed once. */
+  group?: string;
+  /** The problem without the screen name, shown once for the whole group. */
+  problem?: string;
 }
+
+/** One cause and every place it shows up. */
+export interface Problem {
+  problem: string;
+  violations: Violation[];
+}
+
+/** A cause on this many screens or more is a shared component: shown once in the rules, not as a dot on every screen. */
+export const SHARED_SCREENS = 3;
+
+export function groupViolations(violations: Violation[]): Problem[] {
+  const groups = new Map<string, Problem>();
+  for (const v of violations) {
+    const key = v.group ?? `${v.screenId ?? v.transitionId}|${v.message}`;
+    const g = groups.get(key);
+    if (g) g.violations.push(v);
+    else groups.set(key, { problem: v.problem ?? v.message, violations: [v] });
+  }
+  // Causes that reach the most screens first: fixing them clears the most.
+  return [...groups.values()].sort((a, b) => b.violations.length - a.violations.length);
+}
+
+const ROLE_NAMES: Record<string, string> = { button: "버튼", link: "링크", tab: "탭", switch: "스위치", checkbox: "체크박스", radio: "선택 버튼", slider: "슬라이더", input: "입력칸", textarea: "입력칸", select: "선택칸" };
 
 export interface RuleResult {
   rule: Rule;
@@ -65,7 +93,13 @@ export function runRule(project: Project, rule: Rule): RuleResult {
           ...captured.flatMap(({ s, elements }) =>
             elements
               .filter((e) => PRESSABLE.has(e.role) && Math.min(e.box.w, e.box.h) < min)
-              .map((e) => ({ screenId: s.id, message: `${s.name}: “${e.label}” ${e.box.w}×${e.box.h}px` })),
+              .map((e) => ({
+                screenId: s.id,
+                message: `${s.name}: “${e.label}” ${e.box.w}×${e.box.h}px`,
+                // Same kind of control at the same size is one component, whatever its label says.
+                group: `${e.role} ${e.box.w}×${e.box.h}`,
+                problem: `${ROLE_NAMES[e.role] ?? e.role} ${e.box.w}×${e.box.h}px (“${e.label}”)`,
+              })),
           ),
         ],
         screens.length + captured.length,
@@ -101,10 +135,33 @@ export function runRule(project: Project, rule: Rule): RuleResult {
             return [...off].map(([c, labels]) => ({
               screenId: s.id,
               message: `${s.name}: 토큰에 없는 색 ${c} (“${labels[0]}”${labels.length > 1 ? ` 외 ${labels.length - 1}곳` : ""})`,
+              group: `color ${c.toUpperCase()}`,
+              problem: `토큰에 없는 색 ${c} (“${labels[0]}”)`,
             }));
           }),
         ],
         withVariant.length + measured.length,
+      );
+    }
+    case "type-scale": {
+      const scale = new Set(project.tokens.filter((t) => t.kind === "type").map((t) => typeKey(t.value)));
+      const measured = scale.size ? captured : [];
+      return result(
+        measured.flatMap(({ s, elements }) => {
+          const off = new Map<string, string[]>();
+          for (const e of elements) {
+            if (!e.font) continue;
+            const k = `${e.font.size} / ${e.font.weight}`;
+            if (!scale.has(k)) off.set(k, [...(off.get(k) ?? []), e.label]);
+          }
+          return [...off].map(([k, labels]) => ({
+            screenId: s.id,
+            message: `${s.name}: 토큰에 없는 글자 ${k} (“${labels[0]}”${labels.length > 1 ? ` 외 ${labels.length - 1}곳` : ""})`,
+            group: `type ${k}`,
+            problem: `토큰에 없는 글자 ${k} (“${labels[0]}”)`,
+          }));
+        }),
+        measured.length,
       );
     }
     case "consistent-buttons": {
@@ -121,7 +178,12 @@ export function runRule(project: Project, rule: Rule): RuleResult {
           // The look most screens use is the reference; the others are flagged once per screen.
           const usual = [...counts].sort((a, b) => b[1] - a[1])[0][0];
           const odd = new Map(uses.filter((u) => u.look !== usual).map((u) => [u.s.id, u]));
-          return [...odd.values()].map(({ s, look }) => ({ screenId: s.id, message: `${s.name}: “${label}” 버튼 ${look}, 다른 곳은 ${usual}` }));
+          return [...odd.values()].map(({ s, look }) => ({
+            screenId: s.id,
+            message: `${s.name}: “${label}” 버튼 ${look}, 다른 곳은 ${usual}`,
+            group: `button ${label} ${look}`,
+            problem: `“${label}” 버튼 ${look}, 다른 곳은 ${usual}`,
+          }));
         }),
         captured.length,
       );
@@ -138,6 +200,12 @@ export function runRule(project: Project, rule: Rule): RuleResult {
     }
   }
 }
+
+/** "18 / 400", "18/400" and "18" all mean size 18 at weight 400. */
+const typeKey = (value: string) => {
+  const [size, weight = "400"] = value.split("/").map((v) => v.trim());
+  return `${Number(size)} / ${Number(weight)}`;
+};
 
 const lookOf = (e: CapturedElement) => `배경 ${e.background ?? "없음"} · 글자 ${e.color ?? "없음"}`;
 
@@ -175,7 +243,12 @@ export interface Warnings {
 export function collectWarnings(project: Project, results: RuleResult[]): Warnings {
   const byScreen = new Map<string, string[]>();
   const push = (id: string, msg: string) => byScreen.set(id, [...(byScreen.get(id) ?? []), msg]);
-  for (const r of results) for (const v of r.violations) if (v.screenId) push(v.screenId, `규칙 위반: ${v.message}`);
+  for (const r of results)
+    for (const g of groupViolations(r.violations)) {
+      const screens = new Set(g.violations.map((v) => v.screenId));
+      if (screens.size >= SHARED_SCREENS) continue;
+      for (const v of g.violations) if (v.screenId) push(v.screenId, `규칙 위반: ${v.message}`);
+    }
 
   const ids = new Set(project.screens.map((s) => s.id));
   const brokenTransitions = new Set<string>();
