@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collectWarnings, groupViolations, runRule, runRules } from "./rules";
+import { collectWarnings, fixRequests, groupViolations, runRule, runRules } from "./rules";
 import { emptyProject } from "./seed";
 import type { CapturedElement, Project, Rule, Screen } from "./types";
 
@@ -99,6 +99,17 @@ describe("rules on screens captured from the app", () => {
       ["링크 60×20px", 1],
     ]);
     expect(problems[1].violations[0].elementKey).toBe("link:더 보기");
+
+    // One click asks for the fix on every screen the cause shows up on, and not twice.
+    const todo = fixRequests(project, problems[0].violations);
+    expect(todo.map((t) => [t.screenId, t.request.elementKey])).toEqual([
+      ["A", "button:(tabs), back"],
+      ["B", "button:(tabs), back"],
+      ["C", "button:한 잔 준비, back"],
+    ]);
+    expect(todo[0].request.note).toBe("누르는 영역을 가로·세로 44px 이상으로 키워 주세요 (지금 30×30px)");
+    project.screens[0].requests = [{ id: "r1", ...todo[0].request }];
+    expect(fixRequests(project, problems[0].violations).map((t) => t.screenId)).toEqual(["B", "C"]);
     const dots = collectWarnings(project, results).byScreen;
     expect([...dots.keys()]).toEqual(["C"]);
     expect(dots.get("C")).toEqual(["규칙 위반: C: “더 보기” 60×20px"]);

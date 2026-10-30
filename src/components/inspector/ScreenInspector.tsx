@@ -139,7 +139,7 @@ export function ScreenInspector({ screen }: { screen: Screen }) {
         onCaptured={(image, url) => ed.setBaselineImage(screen.id, image, url)}
       />
 
-      {screenRules.length > 0 && spec && (
+      {screenRules.length > 0 && (spec || !!screen.baseline?.elements?.length) && (
         <Section title="규칙" action={<LinkButton onClick={() => ed.setView("rules")}>규칙 보기</LinkButton>}>
           <ul className="flex flex-col gap-2 text-sm">
             {screenRules.map((r) => {
@@ -209,6 +209,13 @@ function RequestEditor({ screen }: { screen: Screen }) {
   }, [composing]);
   const [elementKey, setElementKey] = useState("");
   const [area, setArea] = useState<Box | null>(null);
+  // An element pointed out from elsewhere (a rule problem) is picked, so it shows on the shot and a request can follow.
+  const pointed = useEditor((s) => (s.selection?.kind === "screen" && s.selection.id === screen.id ? s.selection.element : undefined));
+  useEffect(() => {
+    if (!pointed) return;
+    setElementKey(pointed);
+    setArea(null);
+  }, [pointed]);
   const [label, setLabel] = useState("");
   const [note, setNote] = useState("");
   const requests = screen.requests ?? [];

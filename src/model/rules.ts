@@ -28,6 +28,18 @@ export interface Violation {
   elementKey?: string;
   /** The off-token color, to show as a swatch. */
   color?: string;
+  /** What to ask for, as the note of a change request on `elementKey`. */
+  fix?: string;
+}
+
+/** Change requests that would fix these violations, leaving out those the screen already has. */
+export function fixRequests(project: Project, violations: Violation[]): { screenId: string; request: { elementKey: string; note: string } }[] {
+  return violations.flatMap((v) => {
+    if (!v.screenId || !v.elementKey || !v.fix) return [];
+    const screen = project.screens.find((s) => s.id === v.screenId);
+    if (screen?.requests?.some((r) => r.elementKey === v.elementKey && r.note === v.fix)) return [];
+    return [{ screenId: v.screenId, request: { elementKey: v.elementKey, note: v.fix } }];
+  });
 }
 
 /** One cause and every place it shows up. */
@@ -104,6 +116,7 @@ export function runRule(project: Project, rule: Rule): RuleResult {
                 // Same kind of control at the same size is one component, whatever its label says.
                 group: `${e.role} ${e.box.w}×${e.box.h}`,
                 problem: `${ROLE_NAMES[e.role] ?? e.role} ${e.box.w}×${e.box.h}px`,
+                fix: `누르는 영역을 가로·세로 ${min}px 이상으로 키워 주세요 (지금 ${e.box.w}×${e.box.h}px)`,
               })),
           ),
         ],
@@ -143,6 +156,7 @@ export function runRule(project: Project, rule: Rule): RuleResult {
               message: `${s.name}: 토큰에 없는 색 ${c} (“${uses[0].label}”${uses.length > 1 ? ` 외 ${uses.length - 1}곳` : ""})`,
               group: `color ${c.toUpperCase()}`,
               problem: `색 ${c.toUpperCase()}`,
+              fix: `색 ${c.toUpperCase()}를 디자인 토큰 색으로 바꿔 주세요${uses.length > 1 ? ` (이 화면 ${uses.length}곳)` : ""}`,
               color: c,
             }));
           }),
@@ -167,6 +181,7 @@ export function runRule(project: Project, rule: Rule): RuleResult {
             message: `${s.name}: 토큰에 없는 글자 ${k} (“${uses[0].label}”${uses.length > 1 ? ` 외 ${uses.length - 1}곳` : ""})`,
             group: `type ${k}`,
             problem: `글자 ${k.replace(" / ", "px · 굵기 ")}`,
+            fix: `글자 크기·굵기 ${k}를 타이포그래피 토큰으로 맞춰 주세요${uses.length > 1 ? ` (이 화면 ${uses.length}곳)` : ""}`,
           }));
         }),
         measured.length,
@@ -193,6 +208,7 @@ export function runRule(project: Project, rule: Rule): RuleResult {
             message: `${s.name}: “${label}” 버튼 ${look}, 다른 곳은 ${usual}`,
             group: `button ${label} ${look}`,
             problem: `${look} (대부분 ${usual})`,
+            fix: `다른 화면의 같은 버튼처럼 ${usual}로 맞춰 주세요`,
           }));
         }),
         captured.length,

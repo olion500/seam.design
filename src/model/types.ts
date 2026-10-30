@@ -304,7 +304,8 @@ export interface AgentWaiting {
 export type View = "flow" | "system" | "rules" | "motion";
 
 export type Selection =
-  | { kind: "screen"; id: string }
+  /** `element` is a captured element to point out, e.g. when coming from a rule problem. */
+  | { kind: "screen"; id: string; element?: string }
   | { kind: "transition"; id: string }
   | { kind: "token"; id: string }
   | { kind: "motion"; id: string }

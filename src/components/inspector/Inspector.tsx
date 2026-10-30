@@ -1,11 +1,11 @@
-import { MousePointerClick, TriangleAlert } from "lucide-react";
+import { Check, MessageSquarePlus, MousePointerClick, TriangleAlert } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Eyebrow, Field, Prop, Section, Tip, Toggle, blurOnEnter, quietInput, selectClass } from "@/components/bits";
 import { ScreenView } from "@/components/ScreenView";
 import { TransitionPlayer } from "@/components/TransitionPlayer";
 import { imageSrc } from "@/lib/api";
 import { displaySpec } from "@/model/diff";
-import { groupViolations } from "@/model/rules";
+import { fixRequests, groupViolations } from "@/model/rules";
 import { isHex, tokensInSpec } from "@/model/tokens";
 import type { Direction, EasingName, MotionKind, MotionPreset, Rule, Screen, Token, Transition } from "@/model/types";
 import { useRuleState } from "@/store/derived";
@@ -378,12 +378,33 @@ function ElementCrop({ screen, elementKey, color }: { screen?: Screen; elementKe
   );
 }
 
+/** Turns a problem into change requests on every screen it shows up on, for the agent to pick up. */
+function FixButton({ fixable, todo }: { fixable: boolean; todo: ReturnType<typeof fixRequests> }) {
+  if (!fixable) return null;
+  const done = todo.length === 0;
+  const screens = new Set(todo.map((t) => t.screenId)).size;
+  return (
+    <Tip label={done ? "변경 요청에 넣음" : `고치기 요청 · 화면 ${screens}곳에 변경 요청 추가`} side="left">
+      <button
+        type="button"
+        aria-label={done ? "요청함" : "고치기 요청"}
+        disabled={done}
+        onClick={() => useEditor.getState().addRequests(todo)}
+        className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:text-change disabled:hover:bg-transparent"
+      >
+        {done ? <Check className="size-4" strokeWidth={2.5} /> : <MessageSquarePlus className="size-4" />}
+      </button>
+    </Tip>
+  );
+}
+
 function RuleInspector({ rule }: { rule: Rule }) {
   const { results } = useRuleState();
   const ed = useEditor.getState();
   const result = results.find((r) => r.rule.id === rule.id);
   const problems = groupViolations(result?.violations ?? []);
-  const screens = useEditor((s) => s.project.screens);
+  const project = useEditor((s) => s.project);
+  const screens = project.screens;
   const screenName = (id?: string) => screens.find((s) => s.id === id)?.name;
   return (
     <>
@@ -414,13 +435,13 @@ function RuleInspector({ rule }: { rule: Rule }) {
               const names = [...new Set(violations.map((v) => screenName(v.screenId) ?? v.message.split(":")[0]))];
               const sub = [label && `“${label}”`, names.length === 1 && names[0]].filter(Boolean).join(" · ");
               return (
-                <li key={`${first.screenId ?? first.transitionId}-${first.message}`}>
+                <li key={`${first.screenId ?? first.transitionId}-${first.message}`} className="flex items-center gap-1">
                   <button
                     type="button"
-                    className="flex w-full items-center gap-3 rounded-lg p-1 text-left hover:bg-muted"
+                    className="flex min-w-0 flex-1 items-center gap-3 rounded-lg p-1 text-left hover:bg-muted"
                     onClick={() => {
                       ed.setView("flow");
-                      if (first.screenId) ed.select({ kind: "screen", id: first.screenId });
+                      if (first.screenId) ed.select({ kind: "screen", id: first.screenId, element: first.elementKey });
                       else if (first.transitionId) ed.select({ kind: "transition", id: first.transitionId });
                     }}
                   >
@@ -435,6 +456,7 @@ function RuleInspector({ rule }: { rule: Rule }) {
                       </Tip>
                     )}
                   </button>
+                  <FixButton fixable={violations.some((v) => v.fix && v.elementKey)} todo={fixRequests(project, violations)} />
                 </li>
               );
             })}

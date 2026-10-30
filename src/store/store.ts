@@ -70,6 +70,8 @@ export interface EditorState {
   setSources: (screenId: string, sources: SourceMapping[]) => void;
   removeScreen: (id: string) => void;
   addRequest: (screenId: string, request: Omit<ChangeRequest, "id">) => void;
+  /** Several requests as one undo step, e.g. one problem shared by many screens. */
+  addRequests: (items: { screenId: string; request: Omit<ChangeRequest, "id"> }[]) => void;
   removeRequest: (screenId: string, requestId: string) => void;
 
   addTransition: (t: Pick<Transition, "from" | "to"> & Partial<Transition>) => string;
@@ -230,6 +232,13 @@ export const useEditor = create<EditorState>()(
         set((s) => {
           const screen = s.project.screens.find((x) => x.id === screenId);
           if (screen) screen.requests = [...(screen.requests ?? []), { ...request, id: newId() }];
+        }),
+      addRequests: (items) =>
+        set((s) => {
+          for (const { screenId, request } of items) {
+            const screen = s.project.screens.find((x) => x.id === screenId);
+            if (screen) screen.requests = [...(screen.requests ?? []), { ...request, id: newId() }];
+          }
         }),
       removeRequest: (screenId, requestId) =>
         set((s) => {
