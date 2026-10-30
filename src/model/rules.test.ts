@@ -95,9 +95,10 @@ describe("rules on screens captured from the app", () => {
     const results = runRules(project);
     const problems = groupViolations(results[0].violations);
     expect(problems.map((p) => [p.problem, p.violations.length])).toEqual([
-      ["버튼 30×30px (“(tabs), back”)", 3],
-      ["링크 60×20px (“더 보기”)", 1],
+      ["버튼 30×30px", 3],
+      ["링크 60×20px", 1],
     ]);
+    expect(problems[1].violations[0].elementKey).toBe("link:더 보기");
     const dots = collectWarnings(project, results).byScreen;
     expect([...dots.keys()]).toEqual(["C"]);
     expect(dots.get("C")).toEqual(["규칙 위반: C: “더 보기” 60×20px"]);

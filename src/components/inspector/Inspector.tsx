@@ -1,12 +1,13 @@
-import { MousePointerClick } from "lucide-react";
+import { MousePointerClick, TriangleAlert } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Eyebrow, Field, Prop, Section, Tip, Toggle, blurOnEnter, quietInput, selectClass } from "@/components/bits";
 import { ScreenView } from "@/components/ScreenView";
 import { TransitionPlayer } from "@/components/TransitionPlayer";
+import { imageSrc } from "@/lib/api";
 import { displaySpec } from "@/model/diff";
 import { groupViolations } from "@/model/rules";
 import { isHex, tokensInSpec } from "@/model/tokens";
-import type { Direction, EasingName, MotionKind, MotionPreset, Rule, Token, Transition } from "@/model/types";
+import type { Direction, EasingName, MotionKind, MotionPreset, Rule, Screen, Token, Transition } from "@/model/types";
 import { useRuleState } from "@/store/derived";
 import { useEditor } from "@/store/store";
 import { EASING_LABEL } from "@/lib/transition";
@@ -344,6 +345,39 @@ function MotionInspector({ preset }: { preset: MotionPreset }) {
   );
 }
 
+const CROP = { w: 80, h: 56 };
+
+/** The faulty element cut out of the screenshot and outlined, so the list shows what is wrong rather than describing it. */
+function ElementCrop({ screen, elementKey, color }: { screen?: Screen; elementKey?: string; color?: string }) {
+  const el = screen?.baseline?.elements?.find((e) => e.key === elementKey);
+  const image = screen?.baseline?.image;
+  const pad = 6;
+  const scale = el ? Math.min(CROP.w / (el.box.w + pad * 2), CROP.h / (el.box.h + pad * 2), 2) : 1;
+  const at = (v: number, size: number, frame: number) => frame / 2 - (v + size / 2) * scale;
+  return (
+    <span aria-hidden className="relative flex shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted" style={{ width: CROP.w, height: CROP.h }}>
+      {el && image && screen ? (
+        <>
+          <img
+            src={imageSrc(image)}
+            alt=""
+            draggable={false}
+            className="absolute max-w-none"
+            style={{ width: screen.size.w * scale, left: at(el.box.x, el.box.w, CROP.w), top: at(el.box.y, el.box.h, CROP.h) }}
+          />
+          <span
+            className="absolute rounded-[3px] outline-2 outline-change"
+            style={{ width: el.box.w * scale, height: el.box.h * scale, left: (CROP.w - el.box.w * scale) / 2, top: (CROP.h - el.box.h * scale) / 2 }}
+          />
+        </>
+      ) : (
+        <TriangleAlert className="size-4 text-muted-foreground" />
+      )}
+      {color && <span className="absolute right-1 bottom-1 size-3 rounded-full shadow-[0_0_0_2px_#fff]" style={{ background: color }} />}
+    </span>
+  );
+}
+
 function RuleInspector({ rule }: { rule: Rule }) {
   const { results } = useRuleState();
   const ed = useEditor.getState();
@@ -372,32 +406,35 @@ function RuleInspector({ rule }: { rule: Rule }) {
       </Section>
       <Section title={`고칠 것 ${problems.length}`}>
         {problems.length ? (
-          <ul className="flex flex-col gap-3 text-sm">
+          <ul className="-mx-1 flex flex-col gap-1">
             {problems.map(({ problem, violations }) => {
               const first = violations[0];
+              const screen = screens.find((s) => s.id === first.screenId);
+              const label = screen?.baseline?.elements?.find((e) => e.key === first.elementKey)?.label;
               const names = [...new Set(violations.map((v) => screenName(v.screenId) ?? v.message.split(":")[0]))];
+              const sub = [label && `“${label}”`, names.length === 1 && names[0]].filter(Boolean).join(" · ");
               return (
-                <li key={`${first.screenId ?? first.transitionId}-${first.message}`} className="flex flex-col gap-0.5">
+                <li key={`${first.screenId ?? first.transitionId}-${first.message}`}>
                   <button
                     type="button"
-                    className="text-left hover:text-brand"
+                    className="flex w-full items-center gap-3 rounded-lg p-1 text-left hover:bg-muted"
                     onClick={() => {
                       ed.setView("flow");
                       if (first.screenId) ed.select({ kind: "screen", id: first.screenId });
                       else if (first.transitionId) ed.select({ kind: "transition", id: first.transitionId });
                     }}
                   >
-                    {problem}
+                    <ElementCrop screen={screen} elementKey={first.elementKey} color={first.color} />
+                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <span className="text-sm font-medium">{problem}</span>
+                      {sub && <span className="truncate text-xs text-muted-foreground">{sub}</span>}
+                    </span>
+                    {names.length > 1 && (
+                      <Tip label={names.join(", ")} side="left">
+                        <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium">{names.length}곳</span>
+                      </Tip>
+                    )}
                   </button>
-                  {names.length > 1 ? (
-                    <Tip label={names.join(", ")} side="left">
-                      <span tabIndex={-1} className="self-start text-xs text-muted-foreground underline decoration-dotted underline-offset-4">
-                        화면 {names.length}곳 공통
-                      </span>
-                    </Tip>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">{names[0]}</span>
-                  )}
                 </li>
               );
             })}

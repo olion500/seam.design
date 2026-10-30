@@ -24,6 +24,10 @@ export interface Violation {
   group?: string;
   /** The problem without the screen name, shown once for the whole group. */
   problem?: string;
+  /** The captured element at fault (`CapturedElement.key`), to show it on the screenshot. */
+  elementKey?: string;
+  /** The off-token color, to show as a swatch. */
+  color?: string;
 }
 
 /** One cause and every place it shows up. */
@@ -95,10 +99,11 @@ export function runRule(project: Project, rule: Rule): RuleResult {
               .filter((e) => PRESSABLE.has(e.role) && Math.min(e.box.w, e.box.h) < min)
               .map((e) => ({
                 screenId: s.id,
+                elementKey: e.key,
                 message: `${s.name}: “${e.label}” ${e.box.w}×${e.box.h}px`,
                 // Same kind of control at the same size is one component, whatever its label says.
                 group: `${e.role} ${e.box.w}×${e.box.h}`,
-                problem: `${ROLE_NAMES[e.role] ?? e.role} ${e.box.w}×${e.box.h}px (“${e.label}”)`,
+                problem: `${ROLE_NAMES[e.role] ?? e.role} ${e.box.w}×${e.box.h}px`,
               })),
           ),
         ],
@@ -129,14 +134,16 @@ export function runRule(project: Project, rule: Rule): RuleResult {
           ),
           // One line per off-token color on a screen, naming where it shows up first.
           ...measured.flatMap(({ s, elements }) => {
-            const off = new Map<string, string[]>();
+            const off = new Map<string, CapturedElement[]>();
             for (const e of elements)
-              for (const c of [e.color, e.background]) if (c && !values.has(c.toUpperCase())) off.set(c, [...(off.get(c) ?? []), e.label]);
-            return [...off].map(([c, labels]) => ({
+              for (const c of [e.color, e.background]) if (c && !values.has(c.toUpperCase())) off.set(c, [...(off.get(c) ?? []), e]);
+            return [...off].map(([c, uses]) => ({
               screenId: s.id,
-              message: `${s.name}: 토큰에 없는 색 ${c} (“${labels[0]}”${labels.length > 1 ? ` 외 ${labels.length - 1}곳` : ""})`,
+              elementKey: uses[0].key,
+              message: `${s.name}: 토큰에 없는 색 ${c} (“${uses[0].label}”${uses.length > 1 ? ` 외 ${uses.length - 1}곳` : ""})`,
               group: `color ${c.toUpperCase()}`,
-              problem: `토큰에 없는 색 ${c} (“${labels[0]}”)`,
+              problem: `색 ${c.toUpperCase()}`,
+              color: c,
             }));
           }),
         ],
@@ -148,17 +155,18 @@ export function runRule(project: Project, rule: Rule): RuleResult {
       const measured = scale.size ? captured : [];
       return result(
         measured.flatMap(({ s, elements }) => {
-          const off = new Map<string, string[]>();
+          const off = new Map<string, CapturedElement[]>();
           for (const e of elements) {
             if (!e.font) continue;
             const k = `${e.font.size} / ${e.font.weight}`;
-            if (!scale.has(k)) off.set(k, [...(off.get(k) ?? []), e.label]);
+            if (!scale.has(k)) off.set(k, [...(off.get(k) ?? []), e]);
           }
-          return [...off].map(([k, labels]) => ({
+          return [...off].map(([k, uses]) => ({
             screenId: s.id,
-            message: `${s.name}: 토큰에 없는 글자 ${k} (“${labels[0]}”${labels.length > 1 ? ` 외 ${labels.length - 1}곳` : ""})`,
+            elementKey: uses[0].key,
+            message: `${s.name}: 토큰에 없는 글자 ${k} (“${uses[0].label}”${uses.length > 1 ? ` 외 ${uses.length - 1}곳` : ""})`,
             group: `type ${k}`,
-            problem: `토큰에 없는 글자 ${k} (“${labels[0]}”)`,
+            problem: `글자 ${k.replace(" / ", "px · 굵기 ")}`,
           }));
         }),
         measured.length,
@@ -167,9 +175,10 @@ export function runRule(project: Project, rule: Rule): RuleResult {
     case "consistent-buttons": {
       const styled = (e: CapturedElement) => e.role === "button" && !!(e.background || e.color);
       const toggles = new Set(captured.flatMap(({ elements }) => pickableLabels(elements.filter(styled))));
-      const looks = new Map<string, { s: Screen; look: string }[]>();
+      const looks = new Map<string, { s: Screen; key: string; look: string }[]>();
       for (const { s, elements } of captured)
-        for (const e of elements) if (styled(e) && !toggles.has(e.label)) looks.set(e.label, [...(looks.get(e.label) ?? []), { s, look: lookOf(e) }]);
+        for (const e of elements)
+          if (styled(e) && !toggles.has(e.label)) looks.set(e.label, [...(looks.get(e.label) ?? []), { s, key: e.key, look: lookOf(e) }]);
       return result(
         [...looks].flatMap(([label, uses]) => {
           const counts = new Map<string, number>();
@@ -178,11 +187,12 @@ export function runRule(project: Project, rule: Rule): RuleResult {
           // The look most screens use is the reference; the others are flagged once per screen.
           const usual = [...counts].sort((a, b) => b[1] - a[1])[0][0];
           const odd = new Map(uses.filter((u) => u.look !== usual).map((u) => [u.s.id, u]));
-          return [...odd.values()].map(({ s, look }) => ({
+          return [...odd.values()].map(({ s, key, look }) => ({
             screenId: s.id,
+            elementKey: key,
             message: `${s.name}: “${label}” 버튼 ${look}, 다른 곳은 ${usual}`,
             group: `button ${label} ${look}`,
-            problem: `“${label}” 버튼 ${look}, 다른 곳은 ${usual}`,
+            problem: `${look} (대부분 ${usual})`,
           }));
         }),
         captured.length,
