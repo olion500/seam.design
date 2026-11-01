@@ -13,7 +13,7 @@ seam.design/
 ├── src/
 │   ├── model/        # 순수 도메인(타입, diff, 규칙, 내보내기, 시드). server와 cli도 import함 -> src/model/AGENTS.md
 │   ├── store/        # useEditor(Zustand+immer+zundo), persist(IndexedDB -> 서버/레포 동기화)
-│   ├── views/        # flow(React Flow 캔버스), System/Rules/Motion(lazy 로드)
+│   ├── views/        # flow(React Flow 캔버스), System/Rules/Motion/Review(lazy 로드)
 │   ├── components/   # 앱 컴포넌트, inspector/, ui/(shadcn 생성물)
 │   └── lib/          # api 클라이언트, 전이 이징, 파일 유틸
 ├── server/           # Bun.serve API: projects/shares(SQLite), capture(헤드리스 Chrome), repo 모드

@@ -10,8 +10,9 @@ import { FlowView } from "@/views/flow/FlowView";
 const SystemView = lazy(() => import("@/views/SystemView").then((m) => ({ default: m.SystemView })));
 const RulesView = lazy(() => import("@/views/RulesView").then((m) => ({ default: m.RulesView })));
 const MotionView = lazy(() => import("@/views/MotionView").then((m) => ({ default: m.MotionView })));
+const ReviewView = lazy(() => import("@/views/ReviewView").then((m) => ({ default: m.ReviewView })));
 
-const VIEWS: View[] = ["flow", "system", "rules", "motion"];
+const VIEWS: View[] = ["flow", "system", "rules", "motion", "review"];
 /** `#/<view>`, or `#/flow/<area>` for one feature area's flow page. */
 const fromHash = (): { view: View; area: string | null } => {
   const [v, area] = location.hash.replace("#/", "").split("/") as [View, string | undefined];
@@ -89,8 +90,9 @@ export function App() {
             {view === "system" && <SystemView />}
             {view === "rules" && <RulesView />}
             {view === "motion" && <MotionView />}
+            {view === "review" && <ReviewView />}
           </Suspense>
-          <Inspector />
+          {view !== "review" && <Inspector />}
         </div>
       </div>
     </TooltipProvider>

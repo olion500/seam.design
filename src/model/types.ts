@@ -322,7 +322,7 @@ export interface AgentWaiting {
   since: string;
 }
 
-export type View = "flow" | "system" | "rules" | "motion";
+export type View = "flow" | "system" | "rules" | "motion" | "review";
 
 export type Selection =
   /** `element` is a captured element to point out, e.g. when coming from a rule problem. */

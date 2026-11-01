@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { Check, RotateCcw } from "lucide-react";
 import { Tip } from "@/components/bits";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { api, bumpRepoImages, imageSrc } from "@/lib/api";
 import { pixelDiff } from "@/lib/pixelDiff";
 import { cn } from "@/lib/utils";
@@ -31,7 +30,8 @@ function summary(c: Change, name: (id: string) => string) {
 
 const changeKey = (c: Change) => (c.kind === "element" ? c.requestId : c.kind === "token" ? c.token : `${c.change}:${c.from}>${c.to}>${c.label}`);
 
-const PAIR_W = 180;
+/** Width of each capture in a pair: large enough to read the app's text. */
+const PAIR_W = 300;
 
 type Box = { x: number; y: number; w: number; h: number };
 
@@ -107,7 +107,9 @@ function Pair({ project, shot, change, version }: { project: Project; shot: Shot
         <figcaption className="text-xs text-muted-foreground">{title}</figcaption>
         <div className="relative overflow-hidden rounded-md border bg-white" style={{ width: PAIR_W, height: size.h * scale }}>
           {src ? (
-            <img src={src} alt={`${screen?.name ?? shot.id} ${title}`} className="size-full object-cover object-top" />
+            <a href={src} target="_blank" rel="noreferrer" aria-label={`${screen?.name ?? shot.id} ${title} 크게 보기`}>
+              <img src={src} alt={`${screen?.name ?? shot.id} ${title}`} className="size-full object-cover object-top" />
+            </a>
           ) : (
             <span className="flex size-full items-center justify-center text-xs text-muted-foreground">없음</span>
           )}
@@ -125,7 +127,7 @@ function Pair({ project, shot, change, version }: { project: Project; shot: Shot
   const before = screen?.baseline?.image ? imageSrc(screen.baseline.image) : undefined;
   const after = `/repo/${shot.file}?v=${encodeURIComponent(version)}`;
   return (
-    <div className="flex gap-3">
+    <div className="flex flex-wrap gap-4">
       {one("기준", before, screen?.size ?? shot.size, element?.box ?? area)}
       {one("결과", after, shot.size, afterBox)}
       {before && <DiffFigure before={before} after={after} height={shot.size.h * (PAIR_W / shot.size.w)} />}
@@ -133,7 +135,8 @@ function Pair({ project, shot, change, version }: { project: Project; shot: Shot
   );
 }
 
-export function ReviewDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+export function ReviewView() {
+  const repo = useSync((s) => s.repo);
   const review = useSync((s) => s.review);
   const project = useEditor((s) => s.project);
   const [decisions, setDecisions] = useState<Record<number, Decision>>({});
@@ -141,25 +144,24 @@ export function ReviewDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 
   const verify = review?.verify;
   useEffect(() => {
-    if (!open || !verify) return;
+    if (!verify) return;
     setState({ step: "edit" });
     setDecisions(Object.fromEntries(verify.results.map((r) => [r.index, { ok: r.status === "pass" ? true : undefined, note: "" }])));
-  }, [open, verify]);
+  }, [verify]);
 
   // Finishing archives the round, so the review is gone by the time the result shows.
   if (state.step === "done" || !review || !verify) {
+    const text =
+      state.step === "done"
+        ? state.text
+        : repo
+          ? "검토할 결과가 없습니다. AI가 고친 뒤 결과를 찍으면(seam verify) 여기에 나옵니다."
+          : "검토는 레포 모드(seam open)에서 AI가 고친 결과를 확인하는 곳입니다.";
     return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>검토</DialogTitle>
-            <DialogDescription>{state.step === "done" ? state.text : "검토할 결과가 없습니다."}</DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-end">
-            <Button onClick={() => onOpenChange(false)}>닫기</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <main aria-label="검토" className="flex min-w-0 flex-1 flex-col gap-2 overflow-y-auto bg-muted px-10 pt-8 pb-12">
+        <h2 className="text-xl font-bold">검토</h2>
+        <p className="text-sm text-muted-foreground">{text}</p>
+      </main>
     );
   }
 
@@ -194,11 +196,11 @@ export function ReviewDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] flex-col gap-4 sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>검토</DialogTitle>
-          <DialogDescription className="flex flex-wrap gap-1.5">
+    <main aria-label="검토" className="flex min-w-0 flex-1 flex-col gap-6 overflow-y-auto bg-muted px-10 pt-8 pb-12">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col gap-2">
+          <h2 className="text-xl font-bold">검토 {review.changes.length}</h2>
+          <div className="flex flex-wrap gap-1.5">
             {(Object.keys(counts) as VerifyResult["status"][])
               .filter((k) => counts[k])
               .map((k) => (
@@ -206,71 +208,71 @@ export function ReviewDialog({ open, onOpenChange }: { open: boolean; onOpenChan
                   {STATUS[k].label} {counts[k]}
                 </span>
               ))}
-          </DialogDescription>
-        </DialogHeader>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          {undecided > 0 && <span className="text-xs text-muted-foreground">남은 판단 {undecided}</span>}
+          <Button disabled={undecided > 0 || state.step === "busy"} onClick={() => void submit()}>
+            {state.step === "busy" ? "처리 중…" : rejecting ? "다시 요청 보내기" : "승인하고 마무리"}
+          </Button>
+        </div>
+      </div>
+      {state.step === "error" && <p className="text-sm text-destructive">{state.text}</p>}
 
-            <ol className="-mx-6 flex min-h-0 flex-col gap-3 overflow-y-auto px-6">
-              {review.changes.map((c, i) => {
-                const r = resultOf(i);
-                const d = decisions[i] ?? { note: "" };
-                const shot = c.kind === "element" ? shotOf(c.screen) : undefined;
-                return (
-                  <li key={changeKey(c)} className={cn("flex flex-col gap-3 rounded-lg border p-4", d.ok === false && "border-change/40")}>
-                    <div className="flex items-start gap-3 text-sm">
-                      <span className="shrink-0 text-xs font-medium text-muted-foreground">{KIND[c.kind]}</span>
-                      <span className="min-w-0 flex-1 break-words">{summary(c, name)}</span>
-                      {r && (
-                        <Tip label={r.detail}>
-                          <span tabIndex={-1} className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs", STATUS[r.status].className)}>
-                            {STATUS[r.status].label}
-                          </span>
-                        </Tip>
-                      )}
-                    </div>
-                    {shot && <Pair project={project} shot={shot} change={c} version={verify.checkedAt} />}
-                    <div className="flex items-center gap-2">
-                      <Button size="sm" variant={d.ok === true ? "default" : "secondary"} aria-pressed={d.ok === true} onClick={() => set(i, { ok: true })}>
-                        <Check /> 승인
-                      </Button>
-                      <Button size="sm" variant={d.ok === false ? "default" : "secondary"} aria-pressed={d.ok === false} onClick={() => set(i, { ok: false })}>
-                        <RotateCcw /> 다시 요청
-                      </Button>
-                    </div>
-                    {d.ok === false && (
-                      <textarea
-                        aria-label={`${i + 1}번 다시 요청 메모`}
-                        rows={2}
-                        placeholder="무엇이 다른가요? (선택)"
-                        className="w-full resize-y rounded-lg border border-input px-3 py-2 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                        value={d.note}
-                        onChange={(e) => set(i, { note: e.target.value })}
-                      />
-                    )}
-                  </li>
-                );
-              })}
-              {otherShots.length > 0 && (
-                <li className="flex flex-col gap-3 rounded-lg border p-4">
-                  <span className="text-sm font-bold">토큰이 바뀐 화면</span>
-                  <div className="flex flex-wrap gap-6">
-                    {otherShots.map((s) => (
-                      <div key={s.id} className="flex flex-col gap-1.5">
-                        <span className="text-xs font-medium">{name(s.id)}</span>
-                        <Pair project={project} shot={s} version={verify.checkedAt} />
-                      </div>
-                    ))}
-                  </div>
-                </li>
+      <ol className="flex flex-col gap-4">
+        {review.changes.map((c, i) => {
+          const r = resultOf(i);
+          const d = decisions[i] ?? { note: "" };
+          const shot = c.kind === "element" ? shotOf(c.screen) : undefined;
+          return (
+            <li key={changeKey(c)} className={cn("flex flex-col gap-4 rounded-xl bg-white p-5", d.ok === false && "shadow-[inset_0_0_0_2px_var(--change)]")}>
+              <div className="flex items-start gap-3 text-sm">
+                <span className="shrink-0 text-xs font-medium text-muted-foreground">{KIND[c.kind]}</span>
+                <span className="min-w-0 flex-1 break-words">{summary(c, name)}</span>
+                {r && (
+                  <Tip label={r.detail}>
+                    <span tabIndex={-1} className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs", STATUS[r.status].className)}>
+                      {STATUS[r.status].label}
+                    </span>
+                  </Tip>
+                )}
+              </div>
+              {shot && <Pair project={project} shot={shot} change={c} version={verify.checkedAt} />}
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant={d.ok === true ? "default" : "secondary"} aria-pressed={d.ok === true} onClick={() => set(i, { ok: true })}>
+                  <Check /> 승인
+                </Button>
+                <Button size="sm" variant={d.ok === false ? "default" : "secondary"} aria-pressed={d.ok === false} onClick={() => set(i, { ok: false })}>
+                  <RotateCcw /> 다시 요청
+                </Button>
+              </div>
+              {d.ok === false && (
+                <textarea
+                  aria-label={`${i + 1}번 다시 요청 메모`}
+                  rows={2}
+                  placeholder="무엇이 다른가요? (선택)"
+                  className="w-full resize-y rounded-lg border border-input px-3 py-2 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                  value={d.note}
+                  onChange={(e) => set(i, { note: e.target.value })}
+                />
               )}
-            </ol>
-            {state.step === "error" && <p className="text-sm text-destructive">{state.text}</p>}
-            <div className="flex items-center justify-end gap-3">
-              {undecided > 0 && <span className="text-xs text-muted-foreground">남은 판단 {undecided}</span>}
-              <Button disabled={undecided > 0 || state.step === "busy"} onClick={() => void submit()}>
-                {state.step === "busy" ? "처리 중…" : rejecting ? "다시 요청 보내기" : "승인하고 마무리"}
-              </Button>
+            </li>
+          );
+        })}
+        {otherShots.length > 0 && (
+          <li className="flex flex-col gap-4 rounded-xl bg-white p-5">
+            <span className="text-sm font-bold">토큰이 바뀐 화면</span>
+            <div className="flex flex-wrap gap-6">
+              {otherShots.map((s) => (
+                <div key={s.id} className="flex flex-col gap-1.5">
+                  <span className="text-xs font-medium">{name(s.id)}</span>
+                  <Pair project={project} shot={s} version={verify.checkedAt} />
+                </div>
+              ))}
             </div>
-      </DialogContent>
-    </Dialog>
+          </li>
+        )}
+      </ol>
+    </main>
   );
 }

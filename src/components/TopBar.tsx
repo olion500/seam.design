@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ClipboardCheck, Cloud, CloudOff, Ellipsis, FolderGit2, Search, Send, Share2 } from "lucide-react";
+import { Cloud, CloudOff, Ellipsis, FolderGit2, Search, Send, Share2 } from "lucide-react";
 import { Tip, blurOnEnter } from "@/components/bits";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,7 +17,6 @@ import { isDirty, useEditor } from "@/store/store";
 import { download, pickFile } from "@/lib/files";
 import { cn } from "@/lib/utils";
 import { OpenProjectDialog, SendToAgentDialog, ShareDialog } from "./ProjectDialogs";
-import { ReviewDialog } from "./ReviewDialog";
 import { SearchDialog } from "./SearchDialog";
 
 const VIEWS: { id: View; label: string }[] = [
@@ -37,7 +36,6 @@ export function TopBar() {
   const [sharing, setSharing] = useState(false);
   const [opening, setOpening] = useState(false);
   const [sending, setSending] = useState(false);
-  const [reviewing, setReviewing] = useState(false);
   const [error, setError] = useState<string>();
 
   const importJSON = async () => {
@@ -102,7 +100,7 @@ export function TopBar() {
       </div>
 
       <nav aria-label="보기 전환" className="flex flex-wrap gap-1 rounded-lg bg-muted p-1">
-        {VIEWS.map((v) => (
+        {[...VIEWS, ...(sync.repo ? [{ id: "review" as const, label: "검토" }] : [])].map((v) => (
           <a
             key={v.id}
             href={`#/${v.id}`}
@@ -113,6 +111,11 @@ export function TopBar() {
             )}
           >
             {v.label}
+            {v.id === "review" && sync.review?.verify && (
+              <span className="ml-1.5 rounded-full bg-change px-1.5 text-xs font-bold text-white">
+                {sync.review.changes.length}
+              </span>
+            )}
           </a>
         ))}
       </nav>
@@ -148,14 +151,6 @@ export function TopBar() {
             <DropdownMenuItem onSelect={() => ed.loadExample()}>예시 프로젝트 불러오기</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        {sync.repo && sync.review?.verify && (
-          <Tip label="AI가 고친 결과를 기준과 비교하고 승인하거나 다시 요청">
-            <Button variant="secondary" onClick={() => setReviewing(true)}>
-              <ClipboardCheck /> 검토
-              <span className="rounded-full bg-change px-1.5 text-xs font-bold text-white">{sync.review.changes.length}</span>
-            </Button>
-          </Tip>
-        )}
         {sync.repo && (
           <Button onClick={() => setSending(true)}>
             <Send /> AI에게 보내기
@@ -169,7 +164,6 @@ export function TopBar() {
       <ShareDialog open={sharing} onOpenChange={setSharing} />
       <OpenProjectDialog open={opening} onOpenChange={setOpening} />
       <SendToAgentDialog open={sending} onOpenChange={setSending} />
-      <ReviewDialog open={reviewing} onOpenChange={setReviewing} />
     </header>
   );
 }

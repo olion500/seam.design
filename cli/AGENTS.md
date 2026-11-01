@@ -26,7 +26,7 @@
 - `seam explore`는 주소 있는 화면마다 버튼·탭·링크를 하나씩 눌러(매번 앱 데이터를 지우고 다시 열고, alert/confirm/window.open은 막음) 주소가 바뀐 곳을 `Screen.appLinks`에, 눌러 본 날을 `exploredAt`에 쓴다. 상태 화면은 누르지 않고 `stateLinks`로만 채운다. 흐름 규칙(`src/model/flows.ts`)이 문서 전이와 이 이동을 합쳐 검사한다
 - `seam open`은 `dist/`가 없으면 먼저 `bun run build`를 하고, `SEAM_REPO`를 설정해 `server/index.ts`를 production 모드로 띄운다(기본 포트 5190).
 - `seam wait`는 0.5초 간격으로 `sent.json`을 확인한다(WSL의 /mnt 경로에서는 파일 감시가 불안정해서). 서버는 `sent.json`을 임시 파일에 쓰고 rename해 반쯤 쓴 파일을 읽지 않게 한다.
-- 검토: 편집기의 검토 창이 `change.json`과 `verify.json`을 읽고(`GET /api/repo/review`), 모두 승인하면 서버가 `seam done`(필요하면 `--force`)을 직접 실행한다(`server/index.ts`의 `finish`). 다시 요청은 `sent.json`의 `review.rejected`로 에이전트에게 간다.
+- 검토: 편집기의 검토 탭(`#/review`, 레포 모드에서만 보임)이 `change.json`과 `verify.json`을 읽고(`GET /api/repo/review`), 모두 승인하면 서버가 `seam done`(필요하면 `--force`)을 직접 실행한다(`server/index.ts`의 `finish`). 다시 요청은 `sent.json`의 `review.rejected`로 에이전트에게 간다.
 - `seam skill install`은 SKILL.md의 `{{SEAM}}`을 `bun <절대경로>/cli/seam.ts`로 바꿔 `.claude/skills/seam`과 `.agents/skills/seam`에 복사한다.
 
 ## ANTI-PATTERNS
